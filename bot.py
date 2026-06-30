@@ -13,7 +13,9 @@ SESSION_STRING_USER = "1AZWarzQBu4JtB60pYeeTBFlwqbLPYLlRbCp4YsNhVrZR6jWk4ot18CG8
 ADMIN_ID = 7771137226
 ALLOWED_GROUP = "BuddyMovies_official"
 ENLACE_GRUPO = "https://t.me/BuddyMovies_official"
+META_INVITADOS = 5
 RESULTS_PER_PAGE = 10
+TUTORIAL_LINK = "https://t.me/BuddyMovies_official/480"
 TARGET_CHANNELS = ["@SeriesbyJoel", "@chatpeliculasymas", "@Almacen_Pelis", "@mundoword39", "@Neoanimes", "@AnimeLatinoHD", "@tiyiot"]
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -26,7 +28,6 @@ class BuddyMoviesBot:
         self.ready = False; self.ecache = {}
         self.searches = {}
         self.pending = {}
-        self.restricted_msg = {}
         self.pfile = "usuarios_invitacion.json"
         self.channels_file = "canales_guardados.json"
         self.additional_channels = []
@@ -146,57 +147,75 @@ class BuddyMoviesBot:
                 try: await ev.delete()
                 except: pass
             
+            if ev.user_joined:
+                uid = str(ev.user.id)
+                user = ev.user
+                name = user.first_name or "Usuario"
+                welcome = f"🎬 **Bienvenido {name} a Buddy Movies**\n\n**Descubre tu próxima obsesión:**\n🎥 Películas • 🐉 Anime • 📺 Series\n💕 Doramas • 📖 Novelas • ✨ Dibujos\n🍿 Estrenos • 🎭 TV\n\n**👇 Encuentra al instante:**\n🔥 Lo nuevo • 🌟 Recomendaciones para ti\n🔍 Búsqueda rápida • 📰 Noticias\n\n**Tu mundo de entretenimiento en un solo lugar**"
+                sent = await ev.reply(welcome)
+                self.pending[uid] = {"count": 0, "name": name, "welcome_msg_id": sent.id, "progress_msg_id": None}
+                self._save_pending()
+            
             if ev.user_added:
                 inviter = None
                 if hasattr(ev, 'action_message') and ev.action_message:
-                    if hasattr(ev.action_message, 'from_id') and ev.action_message.from_id:
-                        try: inviter = str(ev.action_message.from_id.user_id)
+                    am = ev.action_message
+                    if hasattr(am, 'from_id') and am.from_id:
+                        try: inviter = str(am.from_id.user_id)
                         except: pass
                 if inviter and inviter in self.pending:
-                    self.pending[inviter] = self.pending.get(inviter, 0) + 1
-                    if self.pending[inviter] >= 1:
+                    data = self.pending[inviter]
+                    data["count"] = data.get("count", 0) + 1
+                    count = data["count"]
+                    if count >= META_INVITADOS:
                         await self._unrestrict(int(inviter))
+                        try:
+                            mids = []
+                            if data.get("welcome_msg_id"): mids.append(data["welcome_msg_id"])
+                            if data.get("progress_msg_id"): mids.append(data["progress_msg_id"])
+                            if mids: await self.bot.delete_messages(ALLOWED_GROUP, mids)
+                        except: pass
+                        await self.bot.send_message(ALLOWED_GROUP, f"🎉 **¡Felicidades {data['name']}!** Completaste la misión. ¡Ya puedes escribir!")
                         del self.pending[inviter]
-                        self._save_pending()
-                        if inviter in self.restricted_msg:
-                            try: await self.bot.delete_messages(ALLOWED_GROUP, self.restricted_msg[inviter])
+                    else:
+                        if data.get("progress_msg_id"):
+                            try:
+                                barra = "🟩" * count + "⬜" * (META_INVITADOS - count)
+                                await self.bot.edit_message(ALLOWED_GROUP, data["progress_msg_id"], f"📊 **TU PROGRESO ACTUAL:**\nProgreso: [{barra}] {count}/{META_INVITADOS}\n\n👆 ¡Invita y mira cómo sube!")
                             except: pass
-                            del self.restricted_msg[inviter]
-                        await self.bot.send_message(ALLOWED_GROUP, "✅ ¡Ya puedes escribir!")
-                uid = str(ev.user.id)
-                if uid not in self.pending:
-                    self.pending[uid] = 0
                     self._save_pending()
-            elif ev.user_joined:
                 uid = str(ev.user.id)
                 if uid not in self.pending:
-                    self.pending[uid] = 0
+                    user = ev.user
+                    self.pending[uid] = {"count": 0, "name": user.first_name or "Usuario", "welcome_msg_id": None, "progress_msg_id": None}
                     self._save_pending()
 
         @self.bot.on(events.NewMessage)
         async def handle(ev):
             if ev.out: return
             uid = str(ev.sender_id)
-            
             if not ev.is_private and uid in self.pending and ev.sender_id != ADMIN_ID:
                 await ev.delete()
                 await self._restrict(ev.sender_id)
-                msg = await ev.reply(f"🛑 Añade a 1 amigo para escribir.\n📎 {ENLACE_GRUPO}", link_preview=False)
-                self.restricted_msg[uid] = msg.id
+                user = ev.sender
+                name = user.first_name or "Usuario"
+                data = self.pending[uid]
+                count = data.get("count", 0)
+                barra = "🟩" * count + "⬜" * (META_INVITADOS - count)
+                msg = f"🛑 **¡ATENCIÓN {name}!** 🛑\n\n🔒 **Estás RESTRINGIDO temporalmente.**\nPara poder escribir aquí, debes completar la misión.\n\n🎯 **MISIÓN:** Añade a {META_INVITADOS} amigos al grupo.\n\n💡Si no sabes cómo hacerlo Clic aquí 👇🏻\n{TUTORIAL_LINK}\n\n📊 **TU PROGRESO ACTUAL:**\nProgreso: [{barra}] {count}/{META_INVITADOS}\n\n👆 El contador se actualiza solo. ¡Invita y mira cómo sube!"
+                sent = await ev.reply(msg, link_preview=False)
+                self.pending[uid]["progress_msg_id"] = sent.id
+                self._save_pending()
                 return
-            
             if ev.text and ev.text.startswith('/'): return
-            
             if ev.is_private and ev.sender_id != ADMIN_ID:
                 await ev.reply(f"👋 ¡Hola!\n\n🔍 Soy @BuddyMovies_Bot\n👉 Únete: {ENLACE_GRUPO}", link_preview=False)
                 return
-            
             q = ev.text.strip() if ev.text else ""
             if len(q) < 2: return
-            
             results = await self._search(q)
             if results:
-                self.searches[ev.sender_id] = results
+                self.searches[ev.sender_id] = {"results": results, "query": q}
                 btns = self._create_buttons(results, 0)
                 total = len(results)
                 tp = max(1, (total + RESULTS_PER_PAGE - 1) // RESULTS_PER_PAGE)
@@ -208,35 +227,30 @@ class BuddyMoviesBot:
         async def page_callback(ev):
             try:
                 page = int(ev.data.decode().split('_')[1])
-                results = self.searches.get(ev.sender_id, [])
+                user_data = self.searches.get(ev.sender_id, {})
+                results = user_data.get("results", [])
                 if not results: await ev.answer("❌ Búsqueda expirada"); return
                 btns = self._create_buttons(results, page)
                 await ev.edit(buttons=btns)
                 total = len(results)
                 tp = max(1, (total + RESULTS_PER_PAGE - 1) // RESULTS_PER_PAGE)
                 await ev.answer(f"Página {page+1}/{tp}")
-            except Exception as e:
-                print(f"Page error: {e}")
-                await ev.answer("❌ Error")
+            except: await ev.answer("❌ Error")
 
         @self.bot.on(events.CallbackQuery(pattern=rb'^send_(\d+)$'))
         async def send_content(ev):
             try:
                 idx = int(ev.data.decode().split('_')[1])
-                results = self.searches.get(ev.sender_id, [])
+                user_data = self.searches.get(ev.sender_id, {})
+                results = user_data.get("results", [])
                 if idx < len(results):
                     r = results[idx]
                     uname = r.get('username','') or self.ecache.get(r['entity_name'],{}).get('username','')
-                    if uname:
-                        link = f"https://t.me/{uname}/{r['message_id']}"
-                    else:
-                        eid = self.ecache.get(r['entity_name'],{}).get('id', r['entity_name'])
-                        link = f"https://t.me/c/{eid}/{r['message_id']}"
+                    if uname: link = f"https://t.me/{uname}/{r['message_id']}"
+                    else: link = f"https://t.me/c/{self.ecache.get(r['entity_name'],{}).get('id',r['entity_name'])}/{r['message_id']}"
                     await ev.respond(f"🎬 ➠ {r['clean_title']}\n\n🔗 [ENLACE DIRECTO]({link})\n⚡ @BuddyMovies_Bot", link_preview=True)
                 await ev.answer("✅ Enviado!")
-            except Exception as e:
-                print(f"ERROR: {e}")
-                await ev.answer("❌ Error")
+            except: await ev.answer("❌ Error")
 
     async def _is_video(self, m):
         if not m or not m.media: return False
@@ -275,7 +289,7 @@ class BuddyMoviesBot:
         print("🚀 @BuddyMovies_Bot...")
         self.user = TelegramClient(session=StringSession(SESSION_STRING_USER), api_id=API_ID, api_hash=API_HASH)
         await self.user.start()
-        self.bot = TelegramClient("bot_v14", API_ID, API_HASH)
+        self.bot = TelegramClient("bot_final2", API_ID, API_HASH)
         await self.bot.start(bot_token=BOT_TOKEN)
         me = await self.bot.get_me()
         print(f"✅ Bot: @{me.username}")
