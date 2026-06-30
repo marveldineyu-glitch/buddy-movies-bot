@@ -5,79 +5,85 @@ import threading
 from telethon import TelegramClient, events, Button
 import telebot
 import re
-from datetime import datetime
 import json
 import os
 from collections import defaultdict
 import hashlib
 import pickle
 
-# 🔐 CREDENCIALES ACTUALIZADAS
+# 🔐 CREDENCIALES
 API_ID = 28074212
 API_HASH = "b18dae908474a377684922f3e9d5b795"
 BOT_TOKEN = "8984212389:AAFZMh_ZQZm8DlIqPLvQEljnC1UPVtRJV-Q"
 
-# 🔐 CLAVE DE SESIÓN VERIFICADA
 SESSION_STRING_USER = "1AZWarzQBu4JtB60pYeeTBFlwqbLPYLlRbCp4YsNhVrZR6jWk4ot18CG8GlGC4RtNtPdjbiRH1R38ojZD15V92q59-fr6PQaI8vfZF3iPKWQBVd_NYiHmXCi1haKN93WIilyNs__N79xtn6PfVFselPE_-iGqe3u7f4iierM_HtI13E-Y55DE71wPqqtbYRHC7zk2Hy2u87Kmpr8AOiozvGSUkjvKkWjuk0kiyOrN_heBNMzUTcTV9KQLxlJHelBmFq4MGt1oWpcii2cw6s9i8YDp3CYml_iyhQu_LpDHV38rsB352SaAstITawup8VbtaH4ZKvyAFcs0wYV3dc4GMN0Efybz618="
 
-# Sesiones
 BOT_SESSION = "BuddyMoviesBot"
-
-# ID del administrador
 ADMIN_ID = 7771137226
-
-# GRUPO PERMITIDO
 ALLOWED_GROUP = "BuddyMovies_official"
-
-# Configuración de paginación
 RESULTS_PER_PAGE = 6
-
-# --- CONFIGURACIÓN BOT 2 ---
-# ✅ ID DEL VIDEO (Mensaje de restricción)
 ID_VIDEO = "BAACAgEAAyEFAASVMPBpAANjaRo3eFQiNrmP1jRJBIIDXkHU5ZUAAi4BAAL7R0lHCKNISWgyguU2BA"
-
-# ⭐ ID DE FOTO DE FELICITACIÓN
 ID_FOTO_EXITO = "AgACAgEAAyEFAASVMPBpAANzaSKIAw5DdJgD91UkL69PW_-dMPgAAigMaxsYDxFFL7UwIAuTy64BAAMCAAN4AAM2BA"
-
-# ✅ ENLACE DEL GRUPO
 ENLACE_GRUPO = "https://t.me/BuddyMovies_official"
-
-# Meta de invitados
 META_INVITADOS = 1
 
-# 🚀 CACHE ULTRA-RÁPIDO EN MEMORIA
+TARGET_CHANNELS = ["@SeriesbyJoel", "@chatpeliculasymas", "@Almacen_Pelis", "@mundoword39", "@Neoanimes", "@AnimeLatinoHD", "@tiyiot"]
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# StringSession
 try:
     from telethon.sessions import StringSession
 except ImportError:
     class StringSession:
-        def __init__(self, string):
-            self.string = string
-        def __str__(self):
-            return self.string
+        def __init__(self, string): self.string = string
+        def __str__(self): return self.string
+
+# === BASE DE DATOS SIMPLE PARA RESULTADOS ===
+import sqlite3
+DB_FILE = "results.db"
+
+def init_db():
+    conn = sqlite3.connect(DB_FILE)
+    conn.execute("CREATE TABLE IF NOT EXISTS searches (user_id INTEGER, idx INTEGER, entity TEXT, title TEXT, msg_id INTEGER, username TEXT)")
+    conn.commit()
+    conn.close()
+
+def save_search(user_id, results):
+    conn = sqlite3.connect(DB_FILE)
+    conn.execute("DELETE FROM searches WHERE user_id=?", (user_id,))
+    for i, r in enumerate(results):
+        entity_name = r.get('entity_name', '')
+        title = r.get('clean_title', '')[:200]
+        msg_id = r.get('message_id', 0)
+        username = r.get('username', '')
+        conn.execute("INSERT INTO searches VALUES (?,?,?,?,?,?)", (user_id, i, entity_name, title, msg_id, username))
+    conn.commit()
+    conn.close()
+
+def get_search(user_id):
+    conn = sqlite3.connect(DB_FILE)
+    cur = conn.execute("SELECT * FROM searches WHERE user_id=? ORDER BY idx", (user_id,))
+    results = [{'entity_name': r[2], 'clean_title': r[3], 'message_id': r[4], 'username': r[5]} for r in cur.fetchall()]
+    conn.close()
+    return results
+
+init_db()
 
 class UltraFastVideoBot:
     def __init__(self):
         self.bot_client = None
         self.user_client = None
-        self.user_searches = {}
-        self.stats = {"searches": 0, "videos_sent": 0, "cache_hits": 0}
-        
         self.content_index = defaultdict(list)
         self.title_index = {}
         self.search_cache = {}
         self.is_index_ready = False
         self.scan_progress = {"completed": 0, "total": len(TARGET_CHANNELS)}
         self.accessible_entities = []
-        self.last_search_time = {}
         self.entity_cache = {}
         self.channels_file = "canales_guardados.json"
         self.index_file = "video_index.pkl"
         self.scan_progress_file = "scan_progress.json"
-        self.result_messages = {}
         self.additional_channels = []
         
     async def initialize(self):
@@ -94,36 +100,34 @@ class UltraFastVideoBot:
             await self._fast_entity_check()
             await self._load_existing_index()
             if not self.is_index_ready:
-                print("⚡ ESCANEO RÁPIDO INICIAL...")
+                print("⚡ ESCANEO RÁPIDO...")
                 await self._quick_initial_scan()
             print("🔄 ESCANEO COMPLETO EN SEGUNDO PLANO...")
             asyncio.create_task(self._parallel_accelerated_scan())
             self._setup_handlers()
-            total_videos = self._get_total_videos()
-            print(f"\n🎯 BUDDY MOVIES BOT OPERATIVO - {total_videos} VIDEOS")
+            print(f"\n🎯 BOT OPERATIVO - {self._get_total_videos()} VIDEOS")
         except Exception as e:
-            logger.error(f"Error en inicialización: {e}")
+            logger.error(f"Error: {e}")
             raise
 
     def _serialize_message_data(self, msg_data):
-        return {'channel': msg_data['channel'], 'clean_title': msg_data['clean_title'], 'message_id': msg_data['message_id'], 'entity_name': msg_data['entity_name'], 'timestamp': msg_data.get('timestamp')}
+        return {'channel': msg_data['channel'], 'clean_title': msg_data['clean_title'], 'message_id': msg_data['message_id'], 'entity_name': msg_data['entity_name'], 'timestamp': msg_data.get('timestamp'), 'username': msg_data.get('username', '')}
 
     async def _load_existing_index(self):
         try:
             if os.path.exists(self.index_file):
-                print("📂 CARGANDO ÍNDICE EXISTENTE...")
+                print("📂 CARGANDO ÍNDICE...")
                 with open(self.index_file, 'rb') as f:
                     data = pickle.load(f)
                     self.content_index = defaultdict(list)
-                    content_data = data.get('content_index', {})
-                    for key, messages in content_data.items():
+                    for key, messages in data.get('content_index', {}).items():
                         self.content_index[key] = messages
                     self.title_index = data.get('title_index', {})
                     self.entity_cache = data.get('entity_cache', {})
-                print(f"✅ ÍNDICE CARGADO: {self._get_total_videos()} videos")
+                print(f"✅ {self._get_total_videos()} videos cargados")
                 self.is_index_ready = True
         except Exception as e:
-            print(f"❌ Error cargando índice: {e}")
+            print(f"❌ Error: {e}")
 
     async def _save_index(self):
         try:
@@ -136,9 +140,7 @@ class UltraFastVideoBot:
             data = {'content_index': serializable_content_index, 'title_index': serializable_title_index, 'entity_cache': self.entity_cache, 'saved_at': time.time()}
             with open(self.index_file, 'wb') as f:
                 pickle.dump(data, f)
-            print(f"💾 Índice guardado: {self._get_total_videos()} videos")
-        except Exception as e:
-            print(f"❌ Error guardando índice: {e}")
+        except: pass
 
     async def _load_scan_progress(self):
         try:
@@ -147,51 +149,34 @@ class UltraFastVideoBot:
                     self.scan_progress = json.load(f)
         except: pass
 
-    async def _save_scan_progress(self):
-        try:
-            with open(self.scan_progress_file, 'w') as f:
-                json.dump(self.scan_progress, f)
-        except: pass
-
     async def _fast_entity_check(self):
-        print("🔍 VERIFICANDO ACCESO...")
-        all_channels = TARGET_CHANNELS + self.additional_channels
-        for entity_name in all_channels:
+        for entity_name in TARGET_CHANNELS + self.additional_channels:
             try:
                 entity = await self.user_client.get_entity(entity_name)
                 self.accessible_entities.append(entity_name)
                 self.entity_cache[entity_name] = {'id': entity.id, 'username': getattr(entity, 'username', None), 'access_hash': entity.access_hash}
-                print(f"✅ {entity_name}")
-            except Exception as e:
-                print(f"❌ {entity_name}: {str(e)}")
+            except: pass
 
     async def _quick_initial_scan(self):
-        print("⚡ ESCANEO RÁPIDO...")
         for entity_name in self.accessible_entities[:3]:
             try:
-                entity = await self.user_client.get_entity(entity_name)
-                async for message in self.user_client.iter_messages(entity, limit=500):
+                async for message in self.user_client.iter_messages(entity_name, limit=500):
                     if await self._is_video_message(message):
                         await self._index_message(message, entity_name)
             except: pass
         self.is_index_ready = True
-        print(f"🎯 CARGA RÁPIDA COMPLETADA: {self._get_total_videos()} videos")
         await self._save_index()
 
     async def _parallel_accelerated_scan(self):
-        print("🔄 ESCANEO COMPLETO...")
         for entity_name in self.accessible_entities:
             await self._complete_channel_scan(entity_name)
-        print("🎉 ESCANEO COMPLETO TERMINADO!")
 
     async def _complete_channel_scan(self, entity_name):
         try:
-            entity = await self.user_client.get_entity(entity_name)
-            async for message in self.user_client.iter_messages(entity, limit=2000):
+            async for message in self.user_client.iter_messages(entity_name, limit=2000):
                 if await self._is_video_message(message):
                     await self._index_message(message, entity_name)
             self.scan_progress["completed"] += 1
-            await self._save_scan_progress()
             await self._save_index()
         except: pass
 
@@ -199,10 +184,10 @@ class UltraFastVideoBot:
         if not message or not message.media: return False
         try:
             if hasattr(message.media, 'document'):
-                document = message.media.document
-                if hasattr(document, 'mime_type') and document.mime_type:
-                    return document.mime_type.startswith('video/')
-                for attr in document.attributes:
+                doc = message.media.document
+                if hasattr(doc, 'mime_type') and doc.mime_type:
+                    return doc.mime_type.startswith('video/')
+                for attr in doc.attributes:
                     if hasattr(attr, 'video') and attr.video: return True
             return hasattr(message.media, 'video')
         except: return False
@@ -211,8 +196,7 @@ class UltraFastVideoBot:
         if not text: return "Contenido sin título"
         text = re.sub(r'https?://\S+', '', text)
         text = re.sub(r'@\w+', '', text)
-        lines = text.split('\n')
-        for line in lines:
+        for line in text.split('\n'):
             clean = line.strip()
             if 3 <= len(clean.split()) <= 15 and len(clean) > 10: return clean
         return text.strip() if text.strip() else "Contenido sin título"
@@ -224,14 +208,14 @@ class UltraFastVideoBot:
             elif hasattr(message, 'caption') and message.caption: text = message.caption
             if not text: return
             clean_title = self._clean_content_title(text)
-            title_lower = clean_title.lower()
-            words = re.findall(r'\b[a-zA-Z0-9]+\b', title_lower)
-            stop_words = {'de', 'la', 'el', 'y', 'en', 'con', 'para', 'por', 'un', 'una', 'hd', 'full', '4k', '1080p', '720p', 'latino', 'español', 'subtitulado', 'the', 'and', 'with', 'for', 'www', 'com'}
+            words = re.findall(r'\b[a-zA-Z0-9]+\b', clean_title.lower())
+            stop_words = {'de','la','el','y','en','con','para','por','un','una','hd','full','4k','1080p','720p','latino','español','subtitulado','the','and','with','for','www','com'}
             keywords = [w for w in words if w not in stop_words and len(w) > 2]
-            msg_data = {'channel': entity_name, 'clean_title': clean_title, 'message_id': message.id, 'entity_name': entity_name, 'timestamp': time.time()}
+            username = self.entity_cache.get(entity_name, {}).get('username', '')
+            msg_data = {'channel': entity_name, 'clean_title': clean_title, 'message_id': message.id, 'entity_name': entity_name, 'timestamp': time.time(), 'username': username}
             for keyword in set(keywords):
                 self.content_index[keyword].append(msg_data)
-            title_hash = hashlib.md5(title_lower.encode()).hexdigest()[:12]
+            title_hash = hashlib.md5(clean_title.lower().encode()).hexdigest()[:12]
             self.title_index[title_hash] = msg_data
         except: pass
 
@@ -263,12 +247,6 @@ class UltraFastVideoBot:
                     self.additional_channels = json.load(f).get('additional_channels', [])
         except: pass
 
-    async def _save_channels(self):
-        try:
-            with open(self.channels_file, 'w', encoding='utf-8') as f:
-                json.dump({'additional_channels': self.additional_channels, 'saved_at': time.time()}, f)
-        except: pass
-
     async def _precise_search(self, query):
         if not self.is_index_ready: return []
         query_lower = query.lower().strip()
@@ -291,7 +269,7 @@ class UltraFastVideoBot:
             if not await self._is_allowed_chat(event):
                 await self._send_private_message(event)
                 return
-            await event.reply(f"🎬 **BUDDY MOVIES BOT** ⚡\n\n📊 **{self._get_total_videos()} videos**\n🔍 Escribe el nombre de lo que buscas")
+            await event.reply(f"🎬 **BUDDY MOVIES BOT** ⚡\n\n📊 **{self._get_total_videos()} videos**\n🔍 Escribe lo que buscas")
 
         @self.bot_client.on(events.NewMessage)
         async def search(event):
@@ -304,31 +282,45 @@ class UltraFastVideoBot:
                 if len(query) < 2: return
                 results = await self._precise_search(query)
                 if results:
+                    save_search(event.sender_id, results)
                     buttons = []
-                    for i, r in enumerate(results[:10]):
+                    for i, r in enumerate(results[:RESULTS_PER_PAGE]):
                         title = r['clean_title'][:50]
                         buttons.append([Button.inline(title, f"send_{i}")])
-                    self.user_searches[event.sender_id] = {'results': results}
                     await event.reply(f"🔍 **{query}**\n📊 {len(results)} resultados\n👇 Selecciona:", buttons=buttons)
                 else:
-                    await event.reply(f"❌ No se encontraron resultados para: `{query}`")
-            except: pass
+                    await event.reply(f"❌ Sin resultados para: `{query}`")
+            except Exception as e:
+                print(f"Error search: {e}")
 
         @self.bot_client.on(events.CallbackQuery(pattern=rb'^send_(\d+)$'))
         async def send_content(event):
             try:
                 idx = int(event.data.decode().split('_')[1])
-                results = self.user_searches.get(event.sender_id, {}).get('results', [])
+                results = get_search(event.sender_id)
                 if idx < len(results):
                     r = results[idx]
-                    entity = self.entity_cache.get(r['entity_name'])
-                    if entity and entity.get('username'):
-                        link = f"https://t.me/{entity['username']}/{r['message_id']}"
+                    entity_name = r['entity_name']
+                    title = r['clean_title']
+                    msg_id = r['message_id']
+                    username = r.get('username', '')
+                    
+                    entity_cache = self.entity_cache.get(entity_name, {})
+                    if not username and entity_cache:
+                        username = entity_cache.get('username', '')
+                    
+                    if username:
+                        link = f"https://t.me/{username}/{msg_id}"
                     else:
-                        link = f"https://t.me/c/{entity['id']}/{r['message_id']}"
-                    await event.respond(f"🎬 ➠ {r['clean_title']}\n\n🔗 [ENLACE DIRECTO]({link})\n⚡ @BuddyMoviesBot")
-                await event.answer()
-            except: pass
+                        entity_id = entity_cache.get('id', entity_name)
+                        link = f"https://t.me/c/{entity_id}/{msg_id}"
+                    
+                    caption = f"🎬 ➠ {title}\n\n🔗 [ENLACE DIRECTO]({link})\n⚡ @BuddyMoviesBot"
+                    await event.respond(caption, link_preview=True)
+                await event.answer("✅ Enviado!")
+            except Exception as e:
+                print(f"Error send: {e}")
+                await event.answer("❌ Error")
 
     async def run(self):
         try:
@@ -351,25 +343,11 @@ class InvitationBot:
                     self.usuarios_pendientes = json.load(f)
         except: pass
 
-    def _save_usuarios(self):
-        try:
-            with open(self.usuarios_file, 'w') as f:
-                json.dump(self.usuarios_pendientes, f)
-        except: pass
-
-    def generar_texto_progreso(self, nombre, conteo, meta):
-        barra = "🟩" * conteo + "⬜" * (meta - conteo)
-        return f"🛑 **¡ATENCIÓN {nombre.upper()}!** 🛑\n\n🔒 **Estás RESTRINGIDO**\n🎯 **MISIÓN:** Añade a {meta} amigos\n📊 [{barra}] {conteo}/{meta}"
-
     def setup_handlers(self):
         @self.bot.message_handler(content_types=['new_chat_members'])
         def entrada(message):
             try:
                 self.bot.delete_message(message.chat.id, message.message_id)
-                for nuevo in message.new_chat_members:
-                    if not nuevo.is_bot:
-                        self.usuarios_pendientes[nuevo.id] = {'conteo': 0, 'msg_id': None, 'nombre': nuevo.first_name}
-                self._save_usuarios()
             except: pass
 
         @self.bot.message_handler(func=lambda m: True)
@@ -377,13 +355,7 @@ class InvitationBot:
             try:
                 if message.from_user.id in self.usuarios_pendientes:
                     self.bot.delete_message(message.chat.id, message.message_id)
-                    datos = self.usuarios_pendientes[message.from_user.id]
                     self.bot.restrict_chat_member(message.chat.id, message.from_user.id, permissions=telebot.types.ChatPermissions(can_send_messages=False, can_invite_users=True))
-                    if datos['msg_id'] is None:
-                        texto = self.generar_texto_progreso(message.from_user.first_name, datos['conteo'], META_INVITADOS)
-                        msg = self.bot.send_message(message.chat.id, texto, parse_mode='Markdown')
-                        self.usuarios_pendientes[message.from_user.id]['msg_id'] = msg.message_id
-                        self._save_usuarios()
             except: pass
 
     def run(self):
@@ -393,8 +365,6 @@ class InvitationBot:
                 self.bot.infinity_polling(timeout=60)
             except:
                 time.sleep(10)
-
-TARGET_CHANNELS = ["@SeriesbyJoel", "@chatpeliculasymas", "@Almacen_Pelis", "@mundoword39", "@Neoanimes", "@AnimeLatinoHD", "@tiyiot"]
 
 async def main():
     bot = UltraFastVideoBot()
