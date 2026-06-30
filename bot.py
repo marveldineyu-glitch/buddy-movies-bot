@@ -134,7 +134,7 @@ class BuddyMoviesBot:
                 self.additional_channels.append(ch)
                 self._save_channels()
                 count = 0
-                async for m in self.user.iter_messages(ent, limit=2000):
+                async for m in self.user.iter_messages(ent, limit=7000):
                     if await self._is_video(m):
                         await self._index(m, ch); count += 1
                 self.ready = True
