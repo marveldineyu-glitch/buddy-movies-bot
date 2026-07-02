@@ -13,4 +13,11 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install telethon telebot cryptg
-      - run: python bot.py
+      - run: timeout 25m python bot.py || true
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add video_index.pkl canales_guardados.json usuarios_invitacion.json 2>/dev/null || true
+          git diff --staged --quiet || git commit -m "Save data"
+          git push

@@ -302,3 +302,18 @@ if __name__ == '__main__':
     try: asyncio.run(bot.start())
     except KeyboardInterrupt: print("👋 Bot detenido")
     except Exception as e: print(f"❌ Error: {e}"); time.sleep(30); asyncio.run(bot.start())
+
+# GUARDAR ÍNDICE AL FINAL
+import atexit
+@atexit.register
+def save_on_exit():
+    try:
+        import pickle, json
+        sc = {}
+        for k, ms in bot.idx.items():
+            sc[k] = [{'channel':m['channel'],'clean_title':m['clean_title'],'message_id':m['message_id'],'entity_name':m['entity_name'],'username':m.get('username','')} for m in ms]
+        pickle.dump({'content_index':sc,'title_index':bot.tidx,'entity_cache':bot.ecache}, open("video_index.pkl",'wb'))
+        json.dump({'additional_channels':bot.additional_channels}, open("canales_guardados.json",'w'))
+        json.dump(bot.pending, open("usuarios_invitacion.json",'w'))
+        print("💾 Datos guardados")
+    except: pass
