@@ -125,10 +125,11 @@ class BuddyMoviesBot:
         @self.bot.on(events.NewMessage(pattern='/addchannel'))
         async def addch(ev):
             if ev.sender_id != ADMIN_ID: return
-            lines = ev.message.text.split('\n')
+            text = ev.message.text.replace('/addchannel', '').strip()
+            # Dividir por espacios o saltos de línea
+            channels = text.replace('\n', ' ').split()
             added = []
-            for line in lines:
-                ch = line.strip()
+            for ch in channels:
                 if not ch.startswith('@'): continue
                 if ch in self.additional_channels:
                     added.append(f"❌ {ch} ya existe")
@@ -146,7 +147,7 @@ class BuddyMoviesBot:
                     added.append(f"✅ {ch} - {count} videos")
                 except Exception as e:
                     added.append(f"❌ {ch}: {str(e)[:50]}")
-            await ev.reply('\n'.join(added) if added else "❌ Usa: /addchannel @canal1\n@canal2")
+            await ev.reply('\n'.join(added) if added else "❌ Sin canales válidos")
 
         @self.bot.on(events.ChatAction)
         async def on_chat_action(ev):
