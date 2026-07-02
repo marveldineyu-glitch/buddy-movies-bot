@@ -125,21 +125,28 @@ class BuddyMoviesBot:
         @self.bot.on(events.NewMessage(pattern='/addchannel'))
         async def addch(ev):
             if ev.sender_id != ADMIN_ID: return
-            parts = ev.text.split()
-            if len(parts) != 2: await ev.reply("❌ /addchannel @canal"); return
-            ch = parts[1]
-            try:
-                ent = await self.user.get_entity(ch)
-                self.ecache[ch] = {'id': ent.id, 'username': getattr(ent, 'username', None)}
-                self.additional_channels.append(ch)
-                self._save_channels()
-                count = 0
-                async for m in self.user.iter_messages(ent, limit=10000):
-                    if await self._is_video(m):
-                        await self._index(m, ch); count += 1
-                self.ready = True
-                await ev.reply(f"✅ {ch} - {count} videos")
-            except Exception as e: await ev.reply(f"❌ Error: {e}")
+            lines = ev.message.text.split('\n')
+            added = []
+            for line in lines:
+                ch = line.strip()
+                if not ch.startswith('@'): continue
+                if ch in self.additional_channels:
+                    added.append(f"❌ {ch} ya existe")
+                    continue
+                try:
+                    ent = await self.user.get_entity(ch)
+                    self.ecache[ch] = {'id': ent.id, 'username': getattr(ent, 'username', None)}
+                    self.additional_channels.append(ch)
+                    self._save_channels()
+                    count = 0
+                    async for m in self.user.iter_messages(ent, limit=10000):
+                        if await self._is_video(m):
+                            await self._index(m, ch); count += 1
+                    self.ready = True
+                    added.append(f"✅ {ch} - {count} videos")
+                except Exception as e:
+                    added.append(f"❌ {ch}: {str(e)[:50]}")
+            await ev.reply('\n'.join(added) if added else "❌ Usa: /addchannel @canal1\n@canal2")
 
         @self.bot.on(events.ChatAction)
         async def on_chat_action(ev):
