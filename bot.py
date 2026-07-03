@@ -325,3 +325,22 @@ def save_on_exit():
         json.dump(bot.pending, open("usuarios_invitacion.json",'w'))
         print("💾 Datos guardados")
     except: pass
+
+# Agregar un servidor HTTP falso para que Render detecte el puerto
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+class FakeHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot is running!")
+
+def start_fake_server():
+    try:
+        server = HTTPServer(('0.0.0.0', 10000), FakeHandler)
+        server.serve_forever()
+    except:
+        pass
+
+threading.Thread(target=start_fake_server, daemon=True).start()
