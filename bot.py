@@ -344,3 +344,17 @@ def start_fake_server():
         pass
 
 threading.Thread(target=start_fake_server, daemon=True).start()
+
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+class FakeHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot is running!")
+
+def start_server():
+    HTTPServer(('0.0.0.0', 10000), FakeHandler).serve_forever()
+
+threading.Thread(target=start_server, daemon=True).start()
