@@ -1,7 +1,7 @@
 name: Keep Bot Alive
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: "*/15 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -19,7 +19,7 @@ jobs:
           python-version: '3.11'
           
       - run: pip install telethon cryptg
-      - run: timeout 9m python bot.py || true
+      - run: timeout 14m python bot.py || true
       
       - name: Save data
         run: |
