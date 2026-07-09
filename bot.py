@@ -5,6 +5,24 @@ from telethon.sessions import StringSession
 from telethon.tl.functions.channels import EditBannedRequest
 from telethon.tl.types import ChatBannedRights
 
+# === SERVIDOR HTTP PARA RENDER ===
+import threading as _thr
+from http.server import HTTPServer as _HS, BaseHTTPRequestHandler as _BH
+
+class _FH(_BH):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+def _start():
+    p = int(__import__('os').environ.get("PORT", 10000))
+    print(f"🔌 Puerto {p}")
+    _HS(("0.0.0.0", p), _FH).serve_forever()
+
+_thr.Thread(target=_start, daemon=True).start()
+print("✅ HTTP OK")
+
 API_ID = int(os.environ.get("API_ID", "28074212"))
 API_HASH = os.environ.get("API_HASH", "b18dae908474a377684922f3e9d5b795")
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8984212389:AAFZMh_ZQZm8DlIqPLvQEljnC1UPVtRJV-Q")
