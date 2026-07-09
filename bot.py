@@ -5,13 +5,13 @@ from telethon.sessions import StringSession
 from telethon.tl.functions.channels import EditBannedRequest
 from telethon.tl.types import ChatBannedRights
 
-API_ID = 28074212
-API_HASH = "b18dae908474a377684922f3e9d5b795"
-BOT_TOKEN = "8984212389:AAFZMh_ZQZm8DlIqPLvQEljnC1UPVtRJV-Q"
-SESSION_STRING_USER = "1AZWarzMBu6BrSOlyonpA0yEiqthxRnoxDySaJWVuf1jzmC9tgBbNrh8UEzm6Xn42_1YSj5WRTc3CKgJNcZz6Q77gM9Jl5TPNfEBOu4wj9P4l-DvjM6Kbr4hW5NCRNsQXGXaJwZL4tLbII-PEbYwsCt1sQ3dAZZD1GW5wDKN7A0eIziwOz2zX8uEFx_LpLQXjU2fAulMgtjGTFWOqkv-Xl3S_seDYrOY14ElP3k4qVqrYLgeVkcbqVOpmul3iJ5IyrRg1zloCfDH8PAsoTR-kgqsYE4_9MpcpFIExkUmCG-FX7Ik849KzTci2WpZ4Qkp7oM1qvDCfGtEobRO9BlAdJYGmo2hVHeE="
+API_ID = int(os.environ.get("API_ID", "28074212"))
+API_HASH = os.environ.get("API_HASH", "b18dae908474a377684922f3e9d5b795")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8984212389:AAFZMh_ZQZm8DlIqPLvQEljnC1UPVtRJV-Q")
+SESSION_STRING_USER = os.environ.get("SESSION_STRING_USER", "")
 
-ADMIN_ID = 7771137226
-ALLOWED_GROUP = "BuddyMovies_official"
+ADMIN_ID = int(os.environ.get("ADMIN_ID", "7771137226"))
+ALLOWED_GROUP = os.environ.get("ALLOWED_GROUP", "BuddyMovies_official")
 ENLACE_GRUPO = "https://t.me/BuddyMovies_official"
 META_INVITADOS = 5
 RESULTS_PER_PAGE = 10
