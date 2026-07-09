@@ -327,48 +327,9 @@ def save_on_exit():
     except: pass
 
 # Agregar un servidor HTTP falso para que Render detecte el puerto
-import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
 
-class FakeHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"Bot is running!")
-
-def start_fake_server():
-    try:
-        server = HTTPServer(('0.0.0.0', 10000), FakeHandler)
-        server.serve_forever()
-    except:
-        pass
-
-threading.Thread(target=start_fake_server, daemon=True).start()
-
-import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
-
-
-import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
-
-class FakeHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"Bot running!")
-
-def start_fake_server():
-    try:
-        server = HTTPServer(("0.0.0.0", int(os.environ.get("PORT", 10000))), FakeHandler)
-        server.serve_forever()
-    except:
-        pass
-
-threading.Thread(target=start_fake_server, daemon=True).start()
-
-import os
-import threading
+# Servidor falso para Render
+import os, threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 class FakeHandler(BaseHTTPRequestHandler):
@@ -386,3 +347,8 @@ def start_fake_server():
 threading.Thread(target=start_fake_server, daemon=True).start()
 print("✅ Servidor falso iniciado")
 
+if __name__ == '__main__':
+    bot = BuddyMoviesBot()
+    try: asyncio.run(bot.start())
+    except KeyboardInterrupt: print("👋 Bot detenido")
+    except Exception as e: print(f"❌ Error: {e}"); time.sleep(30); asyncio.run(bot.start())
