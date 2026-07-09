@@ -33,7 +33,7 @@ ALLOWED_GROUP = os.environ.get("ALLOWED_GROUP", "BuddyMovies_official")
 ENLACE_GRUPO = "https://t.me/BuddyMovies_official"
 META_INVITADOS = 5
 RESULTS_PER_PAGE = 10
-TUTORIAL_LINK = "https://t.me/BuddyMovies_official/480"
+TUTORIAL_LINK = "https://t.me/BuddyMovies_official/1088"
 TARGET_CHANNELS = ["@SeriesbyJoel", "@chatpeliculasymas", "@Almacen_Pelis", "@mundoword39", "@Neoanimes", "@AnimeLatinoHD", "@tiyiot"]
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
