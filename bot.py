@@ -366,3 +366,23 @@ def start_fake_server():
         pass
 
 threading.Thread(target=start_fake_server, daemon=True).start()
+
+import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+class FakeHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot running!")
+
+def start_fake_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(("0.0.0.0", port), FakeHandler)
+    print(f"🔌 Servidor HTTP en puerto {port}")
+    server.serve_forever()
+
+threading.Thread(target=start_fake_server, daemon=True).start()
+print("✅ Servidor falso iniciado")
+
