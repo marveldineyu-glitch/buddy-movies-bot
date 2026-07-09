@@ -347,12 +347,6 @@ def start_fake_server():
 threading.Thread(target=start_fake_server, daemon=True).start()
 print("✅ Servidor falso iniciado")
 
-if __name__ == '__main__':
-    bot = BuddyMoviesBot()
-    try: asyncio.run(bot.start())
-    except KeyboardInterrupt: print("👋 Bot detenido")
-    except Exception as e: print(f"❌ Error: {e}"); time.sleep(30); asyncio.run(bot.start())
-
 # === SERVIDOR FALSO PARA RENDER ===
 import os as _os, threading as _threading
 from http.server import HTTPServer as _HTTPServer, BaseHTTPRequestHandler as _BaseHandler
@@ -371,13 +365,8 @@ def _start_fake_server():
 _threading.Thread(target=_start_fake_server, daemon=True).start()
 print("✅ Servidor falso iniciado")
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     bot = BuddyMoviesBot()
-    try:
-        asyncio.run(bot.start())
-    except KeyboardInterrupt:
-        print("👋 Bot detenido")
-    except Exception as e:
-        print(f"❌ Error: {e}")
-        time.sleep(30)
-        asyncio.run(bot.start())
+    try: asyncio.run(bot.start())
+    except KeyboardInterrupt: print("👋 Bot detenido")
+    except Exception as e: print(f"❌ Error: {e}"); time.sleep(30); asyncio.run(bot.start())
