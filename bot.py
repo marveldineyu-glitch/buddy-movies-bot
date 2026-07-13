@@ -118,7 +118,7 @@ async def anti_enlaces(event):
         barra = "🟩" * count + "⬜" * (META_INVITADOS - count)
         try: await bot.send_message(GRUPO_ID, f"⛔ Completa la misión: [{barra}] {count}/{META_INVITADOS}")
         except: pass
-        return
+    return  # Siempre salir, on_user NO debe procesar mensajes del grupo
 
 # ============ COMANDOS ADMIN ============
 @bot.on(events.NewMessage(pattern='/panel'))
