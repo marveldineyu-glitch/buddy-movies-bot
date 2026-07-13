@@ -14,6 +14,15 @@ ADMIN_ID = 7771137226
 ENLACE_GRUPO = "https://t.me/BuddyMovies_official/1088"
 META_INVITADOS = 5
 
+# Anti-duplicado: solo una instancia
+import socket
+s = socket.socket()
+try:
+    s.bind(("0.0.0.0", 9999))
+except:
+    print("Otra instancia corriendo. Saliendo...")
+    exit(0)
+
 bot = TelegramClient('unified_bot', API_ID, API_HASH)
 user = TelegramClient(StringSession(SESSION), API_ID, API_HASH)
 active = {}
