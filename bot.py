@@ -232,7 +232,11 @@ async def on_user(event):
         name = sender.first_name or "Usuario"
     except:
         name = "Usuario"
-    active[uid] = {'chat': event.chat_id, 'name': name}
+    # Anti-eco: no buscar lo mismo 2 veces seguidas
+    last = active.get(uid, {}).get('last_query', '')
+    if q == last:
+        return
+    active[uid] = {'chat': event.chat_id, 'name': name, 'last_query': q}
     mirror.clear()
     await user.send_message(SEARCH_GROUP, f"/search {q}")
 
