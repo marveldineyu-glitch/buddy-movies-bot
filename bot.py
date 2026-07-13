@@ -27,6 +27,7 @@ active = {}
 mirror1, mirror2, mirror3 = {}, {}, {}
 mirror_chat = {}
 our_msg = {}
+sent_msgs = set()  # Anti-eco
 
 invitaciones = {}
 invitaciones_activas = False  # Por defecto LIBRE
@@ -130,6 +131,7 @@ async def on_join(event):
 @bot.on(events.NewMessage(chats=[GRUPO_ID]))
 async def anti_enlaces(event):
     if event.sender_id == ADMIN_ID: return
+    if event.out: return  # No procesar mensajes propios
     
     # Eliminar enlaces
     if event.text and re.search(r'https?://|t\.me/', event.text):
@@ -373,7 +375,9 @@ async def on_user(event):
         msg = "👋 **¡Hola!**\n\nSolo funciono en el grupo:\n👉 " + GRUPO + "\n\n¡Únete para buscar películas!"
         await event.reply(msg)
         return
-    if event.out: return  # Ignorar mensajes del propio bot
+    if event.out: return
+    if event.id in sent_msgs: return
+    sent_msgs.add(event.id)  # Ignorar mensajes propios
     q = event.text.strip() if event.text else ""
     if len(q) < 2 or q.startswith("/") or q.startswith("."): return
     uid = event.sender_id or event.chat_id
