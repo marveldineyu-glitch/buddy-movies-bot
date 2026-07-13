@@ -1,3 +1,5 @@
+import os as _os_render
+_os_render.environ['WEB_CONCURRENCY'] = '1'
 import asyncio, re
 from telethon import TelegramClient, events, Button
 from telethon.sessions import StringSession
