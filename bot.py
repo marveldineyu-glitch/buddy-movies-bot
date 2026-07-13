@@ -118,7 +118,8 @@ async def anti_enlaces(event):
         barra = "🟩" * count + "⬜" * (META_INVITADOS - count)
         try: await bot.send_message(GRUPO_ID, f"⛔ Completa la misión: [{barra}] {count}/{META_INVITADOS}")
         except: pass
-    return  # Siempre salir, on_user NO debe procesar mensajes del grupo
+        return
+    # Si no está restringido y no es enlace, dejar pasar a on_user
 
 # ============ COMANDOS ADMIN ============
 @bot.on(events.NewMessage(pattern='/panel'))
@@ -216,7 +217,6 @@ async def on_search_edit(event):
 # ============ USUARIOS ============
 @bot.on(events.NewMessage)
 async def on_user(event):
-    if event.chat_id == GRUPO_ID: return
     if event.out: return
     if event.id in sent_ids: return
     sent_ids.add(event.id)
