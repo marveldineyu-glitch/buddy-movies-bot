@@ -104,10 +104,9 @@ async def on_join(event):
 
 @bot.on(events.NewMessage(chats=[GRUPO_ID]))
 async def anti_enlaces(event):
-    if event.sender_id == ADMIN_ID: return
     if event.out: return
     
-    if event.text and re.search(r'https?://|t\.me/', event.text):
+    if event.text and re.search(r'https?://|t\.me/', event.text) and event.sender_id != ADMIN_ID:
         await event.delete()
         return
     
