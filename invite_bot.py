@@ -17,18 +17,15 @@ invitaciones_activas = False
 archivo = "invitaciones.json"
 
 if os.path.exists(archivo):
-    with open(archivo) as f:
-        invitaciones = json.load(f)
+    with open(archivo) as f: invitaciones = json.load(f)
 
 def guardar():
-    with open(archivo, 'w') as f:
-        json.dump(invitaciones, f)
+    with open(archivo, 'w') as f: json.dump(invitaciones, f)
 
 @bot.on(events.ChatAction(chats=[GRUPO_ID]))
 async def on_join(event):
     try: await event.delete()
     except: pass
-    
     if event.user_added and event.action_message and event.action_message.from_id:
         inviter = str(event.action_message.from_id.user_id)
         if inviter in invitaciones:
@@ -47,24 +44,16 @@ async def on_join(event):
 async def bloquear(event):
     if event.out or event.sender_id == ADMIN_ID: return
     if event.text and event.text.startswith('/'): return
-    
     uid = str(event.sender_id)
-    if not invitaciones_activas: return
-    if uid not in invitaciones: return
+    if not invitaciones_activas or uid not in invitaciones: return
     
-    # Borrar mensaje
     await event.delete()
+    await bot.edit_permissions(GRUPO_ID, event.sender_id, send_messages=False)
     
     count = invitaciones[uid]
     barra = "🟩" * count + "⬜" * (META_INVITADOS - count)
     name = (await event.get_sender()).first_name or "Usuario"
-    
-    msg = f"🛑 **{name}**, necesitas añadir {META_INVITADOS} amigos para escribir.\n📊 [{barra}] {count}/{META_INVITADOS}"
-    sent = await bot.send_message(GRUPO_ID, msg, buttons=[[Button.url("💡 ¿Cómo invitar?", ENLACE)]])
-    # Borrar el mensaje después de 5 segundos
-    await asyncio.sleep(5)
-    try: await sent.delete()
-    except: pass
+    await bot.send_message(GRUPO_ID, f"🛑 **{name}** [{barra}] {count}/{META_INVITADOS}", buttons=[[Button.url("💡 Invitar", ENLACE)]])
 
 @bot.on(events.NewMessage(pattern='/reset'))
 async def reset(event):
@@ -80,7 +69,7 @@ async def reset(event):
         if m.bot or m.id == ADMIN_ID: continue
         invitaciones[str(m.id)] = 0
     guardar()
-    await event.reply(f"✅ **Meta: {META_INVITADOS}.** {len(invitaciones)} restringidos.")
+    await event.reply(f"✅ Meta: {META_INVITADOS}. {len(invitaciones)} restringidos.")
 
 @bot.on(events.NewMessage(pattern='/free'))
 async def free(event):
@@ -94,13 +83,12 @@ async def free(event):
         if m.bot or m.id == ADMIN_ID: continue
         try: await bot.edit_permissions(GRUPO_ID, m.id, send_messages=True); c += 1
         except: pass
-    await event.reply(f"🔓 **{c} liberados.**")
+    await event.reply(f"🔓 {c} liberados.")
 
 @bot.on(events.NewMessage(pattern='/panel'))
 async def panel(event):
     if event.sender_id != ADMIN_ID: return
-    estado = "🔒 ON" if invitaciones_activas else "🔓 OFF"
-    await event.reply(f"⚙️ {estado} | Meta: {META_INVITADOS} | Pend: {len(invitaciones)}\n/reset <num> | /free | /panel")
+    await event.reply(f"⚙️ {'🔒' if invitaciones_activas else '🔓'} Meta:{META_INVITADOS} Pend:{len(invitaciones)}\n/reset <num> | /free")
 
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -114,5 +102,5 @@ def s():
     HTTPServer(("0.0.0.0", p), H).serve_forever()
 threading.Thread(target=s, daemon=True).start()
 
-print("✅ Invite Bot v3 - Solo borrar mensajes")
+print("✅ FINAL - Restringe al escribir")
 asyncio.run(bot.run_until_disconnected())
