@@ -35,9 +35,10 @@ async def chat_action(event):
         guardar()
         name = event.user.first_name or "Usuario"
         msg = await bot.send_message(GRUPO_ID,
-            f"👤 {name}, para participar en el chat necesitas añadir a {META} personas.\n"
-            f"📊 Progreso: 0/{META}",
-            buttons=[[Button.url("💡 ¿Cómo se hace?", ENLACE)]])
+            f"🍿 Hola {name}, necesitás añadir a {META} amigos al grupo para poder escribir.\n\n"
+            f"📊 Progreso: 0/{META}\n\n"
+            f"👇 ¡Es muy fácil! Solo sigue estos pasos:",
+            buttons=[[Button.url("👉 CLICK AQUÍ 👈", ENLACE)]])
         avisos[uid] = msg.id
     
     if event.user_added and event.action_message and event.action_message.from_id:
@@ -73,10 +74,10 @@ async def filtrar(event):
     name = (await event.get_sender()).first_name or "Usuario"
     
     msg = await bot.send_message(GRUPO_ID,
-        f"🔒 {name}, no puedes escribir aún.\n"
-        f"📌 Añade a {META} personas para desbloquear el chat.\n"
-        f"📊 [{barra}] {count}/{META}",
-        buttons=[[Button.url("💡 ¿Cómo añadir?", ENLACE)]])
+        f"🍿 Hola {name}, necesitás añadir a {META} amigos al grupo para poder escribir.\n\n"
+        f"📊 Progreso: [{barra}] {count}/{META}\n\n"
+        f"👇 ¡Es muy fácil! Solo sigue estos pasos:",
+        buttons=[[Button.url("👉 CLICK AQUÍ 👈", ENLACE)]])
     avisos[uid] = msg.id
 
 @bot.on(events.NewMessage(pattern='/reset'))
