@@ -1,4 +1,4 @@
-import asyncio, json, os, re
+import asyncio, json, os
 from telethon import TelegramClient, events, Button
 from telethon.sessions import StringSession
 
@@ -12,10 +12,8 @@ META_INVITADOS = 5
 ENLACE = "https://t.me/BuddyMovies_official/1088"
 
 bot = TelegramClient('invite_bot', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
-user = TelegramClient(StringSession(SESSION), API_ID, API_HASH)
 invitaciones = {}
 invitaciones_activas = False
-ya_escribieron = set()
 archivo = "invitaciones.json"
 
 if os.path.exists(archivo):
@@ -31,10 +29,8 @@ async def on_join(event):
     try: await event.delete()
     except: pass
     
-    if event.user_joined:
-        if not invitaciones_activas: return
-        uid = str(event.user.id)
-        invitaciones[uid] = 0
+    if event.user_joined and invitaciones_activas:
+        invitaciones[str(event.user.id)] = 0
         guardar()
     
     if event.user_added and event.action_message and event.action_message.from_id:
@@ -42,10 +38,8 @@ async def on_join(event):
         if inviter in invitaciones:
             invitaciones[inviter] += 1
             guardar()
-            count = invitaciones[inviter]
-            if count >= META_INVITADOS:
-                invitaciones.pop(inviter, None)
-                ya_escribieron.discard(inviter)
+            if invitaciones[inviter] >= META_INVITADOS:
+                del invitaciones[inviter]
                 guardar()
                 try:
                     ent = await bot.get_entity(int(inviter))
@@ -59,32 +53,19 @@ async def bloquear(event):
     if event.text and event.text.startswith('/'): return
     
     uid = str(event.sender_id)
-    
     if not invitaciones_activas: return
-    print(f"DEBUG: uid={uid} en invitaciones={uid in invitaciones} en ya_escribieron={uid in ya_escribieron}")
+    if uid not in invitaciones: return
     
-    # Si es nuevo en modo activo, dejarlo escribir 1 vez
-    if uid not in ya_escribieron:
-        ya_escribieron.add(uid)
-        if uid not in invitaciones:
-            invitaciones[uid] = 0
-            guardar()
-        return
+    await event.delete()
+    try: await bot.edit_permissions(GRUPO_ID, event.sender_id, send_messages=False)
+    except: pass
     
-    # Ya escribió una vez, ahora restringir
-    if uid in invitaciones:
-        await event.delete()
-        try:
-            await bot.edit_permissions(GRUPO_ID, event.sender_id, send_messages=False)
-        except: pass
-        
-        count = invitaciones[uid]
-        barra = "🟩" * count + "⬜" * (META_INVITADOS - count)
-        name = (await event.get_sender()).first_name or "Usuario"
-        
-        msg = f"🛑 **¡ATENCIÓN {name}!** 🛑\n\n🔒 Has sido RESTRINGIDO temporalmente.\nPara poder escribir aquí, debes completar la misión.\n\n🎯 **MISIÓN:** Añade a {META_INVITADOS} amigos al grupo.\n\n📊 **TU PROGRESO ACTUAL:**\n[{barra}] {count}/{META_INVITADOS}\n\n👆 El contador se actualiza solo. ¡Invita y mira cómo sube!"
-        
-        await bot.send_message(GRUPO_ID, msg, buttons=[[Button.url("💡 ¿Cómo invitar?", ENLACE)]], link_preview=False)
+    count = invitaciones[uid]
+    barra = "🟩" * count + "⬜" * (META_INVITADOS - count)
+    name = (await event.get_sender()).first_name or "Usuario"
+    
+    msg = f"🛑 **¡ATENCIÓN {name}!** 🛑\n\n🔒 Has sido RESTRINGIDO.\n🎯 **MISIÓN:** Añade a {META_INVITADOS} amigos.\n\n📊 [{barra}] {count}/{META_INVITADOS}"
+    await bot.send_message(GRUPO_ID, msg, buttons=[[Button.url("💡 ¿Cómo invitar?", ENLACE)]], link_preview=False)
 
 @bot.on(events.NewMessage(pattern='/panel'))
 async def panel(event):
@@ -95,41 +76,37 @@ async def panel(event):
 @bot.on(events.NewMessage(pattern='/reset'))
 async def reset(event):
     if event.sender_id != ADMIN_ID: return
-    global META_INVITADOS, invitaciones_activas, ya_escribieron
+    global META_INVITADOS, invitaciones_activas
     try:
         p = event.text.split()
         if len(p) > 1: META_INVITADOS = int(p[1])
     except: pass
     invitaciones_activas = True
     invitaciones.clear()
-    ya_escribieron.clear()
     guardar()
-    await event.reply(f"✅ **Meta: {META_INVITADOS}.** Los usuarios podrán escribir 1 vez antes de ser restringidos.")
+    await event.reply(f"✅ **Meta: {META_INVITADOS}.** Los usuarios serán restringidos al escribir.")
 
 @bot.on(events.NewMessage(pattern='/free'))
 async def free(event):
     if event.sender_id != ADMIN_ID: return
-    global invitaciones_activas, ya_escribieron
+    global invitaciones_activas
     invitaciones_activas = False
     invitaciones.clear()
-    ya_escribieron.clear()
     guardar()
     c = 0
     async for m in bot.iter_participants(GRUPO_ID):
         if m.bot or m.id == ADMIN_ID: continue
         try: await bot.edit_permissions(GRUPO_ID, m.id, send_messages=True); c += 1
         except: pass
-    await event.reply(f"🔓 **{c} usuarios liberados.**")
+    await event.reply(f"🔓 **{c} liberados.**")
 
 @bot.on(events.NewMessage(pattern='/lock'))
 async def lock(event):
     if event.sender_id != ADMIN_ID: return
-    global invitaciones_activas, ya_escribieron
+    global invitaciones_activas
     invitaciones_activas = True
-    ya_escribieron.clear()
-    await event.reply("🔒 **Activado.** Nuevos podrán escribir 1 vez antes de ser restringidos.")
+    await event.reply("🔒 **Activado.**")
 
-# Servidor falso para Render
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 class H(BaseHTTPRequestHandler):
@@ -142,5 +119,5 @@ def s():
     HTTPServer(("0.0.0.0", p), H).serve_forever()
 threading.Thread(target=s, daemon=True).start()
 
-print("✅ Invite Bot - 1 mensaje libre")
+print("✅ Invite Bot v2 - Simple")
 asyncio.run(bot.run_until_disconnected())
