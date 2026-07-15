@@ -61,6 +61,7 @@ async def bloquear(event):
     uid = str(event.sender_id)
     
     if not invitaciones_activas: return
+    print(f"DEBUG: uid={uid} en invitaciones={uid in invitaciones} en ya_escribieron={uid in ya_escribieron}")
     
     # Si es nuevo en modo activo, dejarlo escribir 1 vez
     if uid not in ya_escribieron:
