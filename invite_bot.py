@@ -83,8 +83,11 @@ async def reset(event):
     except: pass
     invitaciones_activas = True
     invitaciones.clear()
+    async for m in bot.iter_participants(GRUPO_ID):
+        if m.bot or m.id == ADMIN_ID: continue
+        invitaciones[str(m.id)] = 0
     guardar()
-    await event.reply(f"✅ **Meta: {META_INVITADOS}.** Los usuarios serán restringidos al escribir.")
+    await event.reply(f"✅ **Meta: {META_INVITADOS}. {len(invitaciones)} usuarios restringidos al escribir.")
 
 @bot.on(events.NewMessage(pattern='/free'))
 async def free(event):
