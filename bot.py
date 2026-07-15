@@ -5,30 +5,23 @@ from telethon.sessions import StringSession
 API_ID = 28074212
 API_HASH = "b18dae908474a377684922f3e9d5b795"
 BOT_TOKEN = "8984212389:AAFZMh_ZQZm8DlIqPLvQEljnC1UPVtRJV-Q"
-SESSION = "1AZWarzgBu1WPkV3MOD3nArYQ0CHOcwLwKQL6hLC3pD7Iyny_j5ElbT4W5ctOur32zChqyOjObIwvk3GrjPvNQNt498yQju8tPky5j_JFrdXX1XwfHe6a7SgYGezZEyeElkZsj7SsnPP3vWVsYPnRTVFjFQ2VvJn00QZppNX8QBJc1jQUVVQ8ataL0nkns6RKJFiDMHy1SNW4o9Z2hGtJ8WVGLZBENuyoGmeZNyPik8kOSOc3ScL9fHGNi-cbODAXc23MyI_rp7s4bEtnkAEy0Z50TE0jE4cqksW6RuBqpeAiNI7wYoUqT3twgy_Qxx3rSKYIqWQcGx9XTQWqIHLh20PP2i4Saro="
-SEARCH_GROUP = "@pooppuuui"
+SESSION = "1AZWarzQBuyuVqdCO0U8mVphUrO9MIarehdGQ0eauLUkQH2NKreBY40FDz3IFDT9-0sFGhdH_9GSRpvTyUt6JV2Fv71zV0qkO-b25JRR8q9gZz34BAHTO8fhTBGwdSUdg2xZhMSUsVLuZmrprBDKL-8hVtHL4HuveZFeZA3c2rKTT187WYnC9UyKz4acDHEutpulV6IEJFBFXMFzAsLT5Th0kwwgwBTN0_rb3CUMEjvvwF_s7SBQpOwwzQjHsDAgh9eJ39wZauYzgTYMiIzoHwZWUQ6CmERXiw2WKnggO_R5cf7EcgEfwaTwR_H76HT7ORKTNBgXhzOW0SzSw59HakA2AdU_DLL0="
+SEARCH_BOT1 = "@AutoFilter_Robot"
+SEARCH_GROUP2 = "@pooppuuui"
+SEARCH_BOT3 = "@TlgramMovieSearch_Bot"
 CANAL = "@BuddyMovies_canal"
 GRUPO = "@BuddyMovies_official"
-GRUPO_ID = -1002311102965
+GRUPO_ID = 2311102965
 ADMIN_ID = 7771137226
 ENLACE_GRUPO = "https://t.me/BuddyMovies_official/1088"
 META_INVITADOS = 5
 
-# Anti-duplicado: solo una instancia
-import socket
-s = socket.socket()
-try:
-    s.bind(("0.0.0.0", 9999))
-except:
-    print("Otra instancia corriendo. Saliendo...")
-    exit(0)
-
-bot = TelegramClient('unified_bot', API_ID, API_HASH)
+bot = TelegramClient('buddy_bot', API_ID, API_HASH)
 user = TelegramClient(StringSession(SESSION), API_ID, API_HASH)
 active = {}
-mirror = {}
-sent_ids = set()  # Anti-eco
+mirror1, mirror2, mirror3 = {}, {}, {}
 mirror_chat = {}
+our_msg = {}
 
 invitaciones = {}
 invitaciones_activas = False
@@ -46,15 +39,40 @@ SIN_RESULTADOS = "❌ **No se encontraron resultados.**"
 
 def replace_ads(text):
     if not text: return text
+    text = text.replace("@FILM_PARADIZE", MI_GRUPO).replace("@RZXBOTZ", MI_BOT)
     text = text.replace("@TlgramMovieGroup_Bot", "@BuddyMovies_Bot")
+    text = text.replace("@TlgramMovieSearch_Bot", "@BuddyMovies_Bot")
+    text = text.replace("Estrenos 2026", "@BuddyMovies_canal")
+    text = re.sub(r"https?://[^\s]*terabox[^\s]*", "", text)
     return text
+
+MI_GRUPO = "@BuddyMovies_official"
+MI_BOT = "@BuddyMovies_Bot"
+
+def clean_caption(text):
+    if not text: return ""
+    lines = text.split('\n')
+    cut = len(lines)
+    for i in range(len(lines)-1, -1, -1):
+        if ('─' in lines[i] or '━' in lines[i]) and i > 0:
+            if i+1 < len(lines) and ('@' in lines[i+1] or '➠' in lines[i+1]):
+                cut = i
+                break
+    return '\n'.join(lines[:cut]).strip()
 
 def make_buttons(msg):
     if not msg.buttons: return None
     btns = []
     for row in msg.buttons:
-        r = [Button.inline(btn.text, btn.data) if btn.data else Button.url(btn.text, btn.url) for btn in row]
-        btns.append(r)
+        r = []
+        for btn in row:
+            if btn.url and 'LfvtadGw' in btn.url: continue
+            if btn.data:
+                t = btn.text.replace('🎞 Quality', '🎞 Resolución').replace('Quality', 'Resolución')
+                r.append(Button.inline(t, btn.data))
+            elif btn.url:
+                r.append(Button.url(btn.text, btn.url))
+        if r: btns.append(r)
     return btns
 
 def get_user():
@@ -64,7 +82,7 @@ def get_user():
     uid = valid[-1]
     return uid, active[uid]['chat'], active[uid]['name']
 
-# ============ SISTEMA DE INVITACIONES ============
+# ============ INVITACIONES ============
 @bot.on(events.ChatAction(chats=[GRUPO_ID]))
 async def on_join(event):
     try: await event.delete()
@@ -72,40 +90,34 @@ async def on_join(event):
     
     if event.user_joined:
         name = event.user.first_name or "Usuario"
-        welcome = f"🎬 **¡Bienvenido {name} a Buddy Movies!** 🍿\n\n📢 Busca películas y series escribiendo el nombre en el chat.\n\n🔥 Tenemos el mejor motor de búsqueda para encontrar el mejor contenido."
-        await bot.send_message(GRUPO_ID, welcome)
+        await bot.send_message(GRUPO_ID, f"🎬 **¡Bienvenido {name} a Buddy Movies!** 🍿\n\n📢 Busca películas y series escribiendo el nombre en el chat.\n\n🔥 Tenemos el mejor motor de búsqueda para encontrar el mejor contenido.")
         
         if not invitaciones_activas: return
-        
         uid = str(event.user.id)
         invitaciones[uid] = 0
         guardar_inv()
         barra = "⬜" * META_INVITADOS
-        msg = f"🛑 **¡ATENCIÓN {name}!** 🛑\n\n🔒 Estás RESTRINGIDO temporalmente.\nPara poder escribir aquí, debes completar la misión.\n\n🎯 **MISIÓN:** Añade a {META_INVITADOS} amigos al grupo.\n\n💡Si no sabes cómo hacerlo Clic aquí 👇🏻\n{ENLACE_GRUPO}\n\n📊 **TU PROGRESO ACTUAL:**\nProgreso: [{barra}] 0/{META_INVITADOS}\n\n👆 El contador se actualiza solo. ¡Invita y mira cómo sube!"
-        await bot.send_message(GRUPO_ID, msg)
+        await bot.send_message(GRUPO_ID, f"🛑 **¡ATENCIÓN {name}!** 🛑\n\n🔒 Estás RESTRINGIDO temporalmente.\n🎯 **MISIÓN:** Añade a {META_INVITADOS} amigos.\n💡 {ENLACE_GRUPO}\n\n📊 Progreso: [{barra}] 0/{META_INVITADOS}")
     
-    if event.user_added:
-        if event.action_message and event.action_message.from_id:
-            inviter_id = str(event.action_message.from_id.user_id)
-            if inviter_id in invitaciones:
-                invitaciones[inviter_id] += 1
+    if event.user_added and event.action_message and event.action_message.from_id:
+        inviter_id = str(event.action_message.from_id.user_id)
+        if inviter_id in invitaciones:
+            invitaciones[inviter_id] += 1
+            guardar_inv()
+            count = invitaciones[inviter_id]
+            if count >= META_INVITADOS:
+                del invitaciones[inviter_id]
                 guardar_inv()
-                count = invitaciones[inviter_id]
-                if count >= META_INVITADOS:
-                    del invitaciones[inviter_id]
-                    guardar_inv()
-                    try:
-                        inviter = await bot.get_entity(int(inviter_id))
-                        name = inviter.first_name or "Usuario"
-                        await bot.edit_permissions(GRUPO_ID, int(inviter_id), send_messages=True)
-                    except:
-                        name = "Usuario"
-                    await bot.send_message(GRUPO_ID, f"🎉 **¡Felicidades {name}!** Completaste la misión. ¡Ya puedes escribir!")
+                try:
+                    inviter = await bot.get_entity(int(inviter_id))
+                    name = inviter.first_name or "Usuario"
+                    await bot.edit_permissions(GRUPO_ID, int(inviter_id), send_messages=True)
+                except: name = "Usuario"
+                await bot.send_message(GRUPO_ID, f"🎉 **¡Felicidades {name}!** Completaste la misión. ¡Ya puedes escribir!")
 
 @bot.on(events.NewMessage(chats=[GRUPO_ID]))
 async def anti_enlaces(event):
     if event.out: return
-    
     if event.text and re.search(r'https?://|t\.me/', event.text) and event.sender_id != ADMIN_ID:
         await event.delete()
         return
@@ -118,14 +130,13 @@ async def anti_enlaces(event):
         try: await bot.send_message(GRUPO_ID, f"⛔ Completa la misión: [{barra}] {count}/{META_INVITADOS}")
         except: pass
         return
-    # Si no está restringido y no es enlace, dejar pasar a on_user
 
 # ============ COMANDOS ADMIN ============
 @bot.on(events.NewMessage(pattern='/panel'))
 async def panel(event):
     if event.sender_id != ADMIN_ID: return
     estado = "🔒 Activado" if invitaciones_activas else "🔓 Desactivado"
-    await event.reply(f"⚙️ **PANEL DE ADMINISTRADOR**\n\n👥 **Estado:** {estado}\n📊 **Meta:** {META_INVITADOS} invitados\n👤 **Pendientes:** {len(invitaciones)} usuarios\n\n**Comandos:**\n🔄 /reset <num> - Activar y reiniciar\n🔓 /free - Modo libre\n🔒 /lock - Activar invitaciones")
+    await event.reply(f"⚙️ **PANEL**\n👥 {estado}\n📊 Meta: {META_INVITADOS}\n👤 Pendientes: {len(invitaciones)}\n\n🔄 /reset <num>\n🔓 /free\n🔒 /lock")
 
 @bot.on(events.NewMessage(pattern='/reset'))
 async def reset(event):
@@ -142,16 +153,14 @@ async def reset(event):
             if member.bot or member.id == ADMIN_ID: continue
             uid = str(member.id)
             invitaciones[uid] = 0
-            name = member.first_name or "Usuario"
             try: await bot.edit_permissions(GRUPO_ID, member.id, send_messages=False)
             except: pass
             barra = "⬜" * META_INVITADOS
-            try:
-                await bot.send_message(GRUPO_ID, f"🛑 **¡ATENCIÓN {name}!** 🛑\n\n🔒 Estás RESTRINGIDO temporalmente.\n🎯 **MISIÓN:** Añade a {META_INVITADOS} amigos.\n💡 {ENLACE_GRUPO}\n\n📊 Progreso: [{barra}] 0/{META_INVITADOS}")
+            try: await bot.send_message(GRUPO_ID, f"🛑 **¡ATENCIÓN {member.first_name}!** 🛑\n\n🔒 Estás RESTRINGIDO.\n🎯 Añade a {META_INVITADOS} amigos.\n💡 {ENLACE_GRUPO}\n\n📊 [{barra}] 0/{META_INVITADOS}")
             except: pass
     except: pass
     guardar_inv()
-    await event.reply(f"✅ **Meta: {META_INVITADOS}. {len(invitaciones)} usuarios restringidos.**")
+    await event.reply(f"✅ Meta: {META_INVITADOS}. {len(invitaciones)} restringidos.")
 
 @bot.on(events.NewMessage(pattern='/free'))
 async def free(event):
@@ -169,18 +178,62 @@ async def free(event):
                 count += 1
             except: pass
     except: pass
-    await event.reply(f"🔓 **Modo libre. {count} usuarios liberados.**")
+    await event.reply(f"🔓 {count} liberados.")
 
 @bot.on(events.NewMessage(pattern='/lock'))
 async def lock(event):
     if event.sender_id != ADMIN_ID: return
     global invitaciones_activas
     invitaciones_activas = True
-    await event.reply("🔒 **Invitaciones activadas.**")
+    await event.reply("🔒 Activado.")
 
-# ============ MOTOR DE BÚSQUEDA ============
-@user.on(events.NewMessage(chats=SEARCH_GROUP))
-async def on_search_new(event):
+# ============ BOT 1: @AutoFilter_Robot ============
+@user.on(events.NewMessage(chats=SEARCH_BOT1))
+async def on_bot1(event):
+    m = event.message
+    uid, chat_id, name = get_user()
+    if not uid: return
+    if m.text:
+        if any(x in m.text.lower() for x in ["save the file", "will be deleted", "select language"]): return
+        if "no results found" in m.text.lower() or "not available" in m.text.lower():
+            await bot.send_message(chat_id, SIN_RESULTADOS)
+            return
+    if m.media:
+        raw = replace_ads(m.text or "")
+        sent = await user.send_file(CANAL, m.media, caption=raw)
+        link = f"https://t.me/{CANAL[1:]}/{sent.id}"
+        title = clean_caption(raw).split('\n')[0] or "Archivo"
+        await bot.send_message(GRUPO, f"🎬 **Aquí tienes {name}**\n\n📁 **{title}**", buttons=[[Button.url("🎥 VER CONTENIDO", link)]], link_preview=False)
+        return
+    if m.text and len(m.text) > 20:
+        txt = replace_ads(m.text)
+        txt = re.sub(r'Hey \*\*.*?\*\*!', f'👋 **¡Hola {name}!**', txt)
+        txt = re.sub(r'Search Query:', '🔍 Búsqueda:', txt)
+        txt = re.sub(r'Total Results:', '📊 Resultados:', txt)
+        txt = re.sub(r'Page:', '📄 Página:', txt)
+        txt = re.sub(r'Tap on the file button and then start to download', 'Presiona el archivo para descargar', txt)
+        sent = await bot.send_message(chat_id, txt[:4000], buttons=make_buttons(m))
+        mirror1[m.id] = sent.id
+        mirror_chat[m.id] = chat_id
+
+@user.on(events.MessageEdited(chats=SEARCH_BOT1))
+async def on_bot1_edit(event):
+    m = event.message
+    if m.id in mirror1:
+        uid, chat_id, name = get_user()
+        if uid:
+            try:
+                txt = replace_ads(m.text)
+                txt = re.sub(r'Hey \*\*.*?\*\*!', f'👋 **¡Hola {name}!**', txt)
+                txt = re.sub(r'Search Query:', '🔍 Búsqueda:', txt)
+                txt = re.sub(r'Total Results:', '📊 Resultados:', txt)
+                txt = re.sub(r'Page:', '📄 Página:', txt)
+                await bot.edit_message(chat_id, mirror1[m.id], txt[:4000], buttons=make_buttons(m))
+            except: pass
+
+# ============ BOT 2: @TlgramMovieGroup_Bot ============
+@user.on(events.NewMessage(chats=SEARCH_GROUP2))
+async def on_bot2_new(event):
     m = event.message
     if not m.sender or not m.sender.bot: return
     uid, chat_id, name = get_user()
@@ -190,11 +243,11 @@ async def on_search_new(event):
         raw = replace_ads(m.text or "")
         sent = await user.send_file(CANAL, m.media, caption=raw)
         link = f"https://t.me/{CANAL[1:]}/{sent.id}"
-        title = (m.text or "Archivo").split('\n')[0][:50]
+        title = clean_caption(raw).split('\n')[0] or "Archivo"
         await bot.send_message(GRUPO, f"🎬 **Aquí tienes {name}**\n\n📁 **{title}**", buttons=[[Button.url("🎥 VER CONTENIDO", link)]], link_preview=False)
 
-@user.on(events.MessageEdited(chats=SEARCH_GROUP))
-async def on_search_edit(event):
+@user.on(events.MessageEdited(chats=SEARCH_GROUP2))
+async def on_bot2_edit(event):
     m = event.message
     if not m.sender or not m.sender.bot: return
     uid, chat_id, name = get_user()
@@ -202,26 +255,64 @@ async def on_search_edit(event):
     if m.text and any(x in m.text.lower() for x in ["buscando", "espera", "recuerda usar", "ayúdanos", "compártelo", "gracias"]): return
     if m.text and len(m.text) > 20:
         txt = replace_ads(m.text)
-        txt = re.sub(r'👋.*?se encontraron', f'👋 **¡Hola {name}!**\n📊 se encontraron', txt)
-        if m.id in mirror:
+        if m.id in mirror2:
             try:
-                await bot.edit_message(chat_id, mirror[m.id], txt[:4000], buttons=make_buttons(m))
+                await bot.edit_message(chat_id, mirror2[m.id], txt[:4000], buttons=make_buttons(m))
             except:
                 sent = await bot.send_message(chat_id, txt[:4000], buttons=make_buttons(m))
-                mirror[m.id] = sent.id
+                mirror2[m.id] = sent.id
         else:
             sent = await bot.send_message(chat_id, txt[:4000], buttons=make_buttons(m))
-            mirror[m.id] = sent.id
+            mirror2[m.id] = sent.id
+
+# ============ BOT 3: @TlgramMovieSearch_Bot ============
+@user.on(events.NewMessage(chats=SEARCH_BOT3))
+async def on_bot3(event):
+    m = event.message
+    uid, chat_id, name = get_user()
+    if not uid: return
+    
+    if m.media:
+        raw = replace_ads(m.text or "")
+        sent = await user.send_file(CANAL, m.media, caption=raw)
+        link = f"https://t.me/{CANAL[1:]}/{sent.id}"
+        title = (m.text or "Archivo").split('\n')[0]
+        await bot.send_message(GRUPO, f"🎬 **Aquí tienes {name}**\n\n📁 **{title}**", buttons=[[Button.url("🎥 VER CONTENIDO", link)]], link_preview=False)
+        return
+    
+    if not m.text: return
+    if any(x in m.text.lower() for x in ["maldito", "comparte", "terabox", "revisa el anuncio", "no te lo guardes"]): return
+    
+    txt = replace_ads(m.text)
+    if uid in our_msg:
+        try:
+            await bot.edit_message(chat_id, our_msg[uid], txt[:4000], buttons=make_buttons(m))
+            mirror3[m.id] = our_msg[uid]
+            return
+        except:
+            pass
+    
+    sent = await bot.send_message(chat_id, txt[:4000], buttons=make_buttons(m))
+    our_msg[uid] = sent.id
+    mirror3[m.id] = sent.id
+
+@user.on(events.MessageEdited(chats=SEARCH_BOT3))
+async def on_bot3_edit(event):
+    m = event.message
+    if m.id in mirror3:
+        uid, chat_id, name = get_user()
+        if uid:
+            try:
+                await bot.edit_message(chat_id, mirror3[m.id], replace_ads(m.text)[:4000], buttons=make_buttons(m))
+            except: pass
 
 # ============ USUARIOS ============
 @bot.on(events.NewMessage)
 async def on_user(event):
+    if event.chat_id == GRUPO_ID: return
     if event.out: return
-    if event.id in sent_ids: return
-    sent_ids.add(event.id)
     if event.is_private and event.sender_id != ADMIN_ID:
-        msg = "👋 **¡Hola!**\n\nSolo funciono en el grupo:\n👉 " + GRUPO + "\n\n¡Únete para buscar películas!"
-        await event.reply(msg)
+        await event.reply(f"👋 **¡Hola!**\n\nSolo funciono en el grupo:\n👉 {GRUPO}\n\n¡Únete para buscar películas!")
         return
     q = event.text.strip() if event.text else ""
     if len(q) < 2 or q.startswith("/") or q.startswith("."): return
@@ -231,13 +322,12 @@ async def on_user(event):
         name = sender.first_name or "Usuario"
     except:
         name = "Usuario"
-    # Anti-eco: no buscar lo mismo 2 veces seguidas
-    last = active.get(uid, {}).get('last_query', '')
-    if q == last:
-        return
-    active[uid] = {'chat': event.chat_id, 'name': name, 'last_query': q}
-    mirror.clear()
-    await user.send_message(SEARCH_GROUP, f"/search {q}")
+    active[uid] = {'chat': event.chat_id, 'name': name}
+    mirror1.clear(); mirror2.clear(); mirror3.clear()
+    our_msg.pop(uid, None)
+    await user.send_message(SEARCH_BOT1, q)
+    await user.send_message(SEARCH_GROUP2, f"/search {q}")
+    await user.send_message(SEARCH_BOT3, q)
 
 @bot.on(events.CallbackQuery)
 async def on_click(event):
@@ -250,34 +340,22 @@ async def on_click(event):
     except:
         name = "Usuario"
     active[uid] = {'chat': event.chat_id, 'name': name}
-    msgs = await user.get_messages(SEARCH_GROUP, limit=20)
-    for m in msgs:
-        if m.sender and m.sender.bot and m.buttons:
-            for row in m.buttons:
-                for btn in row:
-                    if btn.data == data:
-                        await event.answer("⚡")
-                        await btn.click()
-                        return
+    for chat in [SEARCH_BOT1, SEARCH_GROUP2, SEARCH_BOT3]:
+        msgs = await user.get_messages(chat, limit=20)
+        for m in msgs:
+            if m.buttons:
+                for row in m.buttons:
+                    for btn in row:
+                        if btn.data == data:
+                            await event.answer("⚡")
+                            await btn.click()
+                            return
     await event.answer("⏳ Expiró")
-
-# Servidor falso para Render
-import threading as _thr
-from http.server import HTTPServer as _HS, BaseHTTPRequestHandler as _BH
-class _FH(_BH):
-    def do_GET(self):
-        self.send_response(200); self.end_headers(); self.wfile.write(b"OK")
-    def do_HEAD(self):
-        self.send_response(200); self.end_headers()
-def _start():
-    p = int(os.environ.get("PORT", 10000))
-    _HS(("0.0.0.0", p), _FH).serve_forever()
-_thr.Thread(target=_start, daemon=True).start()
 
 async def main():
     await user.start()
     await bot.start(bot_token=BOT_TOKEN)
-    print("✅ @BuddyMovies_Bot - 1 motor")
+    print("✅ 3 motores - @BuddyMovies_Bot")
     await asyncio.gather(bot.run_until_disconnected(), user.run_until_disconnected())
 
 asyncio.run(main())
