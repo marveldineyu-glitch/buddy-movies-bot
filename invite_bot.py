@@ -46,6 +46,7 @@ async def on_join(event):
             if count >= META_INVITADOS:
                 del invitaciones[inviter]
                 ya_escribieron.discard(inviter)
+                invitaciones.pop(inviter, None)
                 guardar()
                 try:
                     ent = await bot.get_entity(int(inviter))
