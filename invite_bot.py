@@ -44,7 +44,9 @@ async def chat_action(event):
     if event.user_added and event.action_message and event.action_message.from_id:
         uid = str(event.action_message.from_id.user_id)
         if uid in pendientes:
-            pendientes[uid] += 1
+            # Contar todos los miembros añadidos
+            added = len(event.added_members) if hasattr(event, 'added_members') else 1
+            pendientes[uid] += added
             guardar()
             # Actualizar mensaje de progreso
             if uid in avisos:
