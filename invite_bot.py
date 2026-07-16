@@ -46,6 +46,15 @@ async def chat_action(event):
         if uid in pendientes:
             pendientes[uid] += 1
             guardar()
+            # Actualizar mensaje de progreso
+            if uid in avisos:
+                count = pendientes[uid]
+                barra = "🟩" * count + "⬜" * (META - count)
+                try:
+                    await bot.edit_message(GRUPO_ID, avisos[uid],
+                        f"🍿 Progreso: [{barra}] {count}/{META}\n\n👇 ¡Es muy fácil! Solo sigue estos pasos:",
+                        buttons=[[Button.url("👉 CLICK AQUÍ 👈", ENLACE)]])
+                except: pass
             if pendientes[uid] >= META:
                 del pendientes[uid]
                 guardar()
@@ -72,13 +81,18 @@ async def filtrar(event):
     count = pendientes[uid]
     barra = "🟩" * count + "⬜" * (META - count)
     name = (await event.get_sender()).first_name or "Usuario"
+    texto = f"🍿 Hola {name}, necesitás añadir a {META} amigos al grupo para poder escribir.\n\n📊 Progreso: [{barra}] {count}/{META}\n\n👇 ¡Es muy fácil! Solo sigue estos pasos:"
     
-    msg = await bot.send_message(GRUPO_ID,
-        f"🍿 Hola {name}, necesitás añadir a {META} amigos al grupo para poder escribir.\n\n"
-        f"📊 Progreso: [{barra}] {count}/{META}\n\n"
-        f"👇 ¡Es muy fácil! Solo sigue estos pasos:",
-        buttons=[[Button.url("👉 CLICK AQUÍ 👈", ENLACE)]])
-    avisos[uid] = msg.id
+    # Editar si ya existe, o enviar nuevo
+    if uid in avisos:
+        try:
+            await bot.edit_message(GRUPO_ID, avisos[uid], texto, buttons=[[Button.url("👉 CLICK AQUÍ 👈", ENLACE)]])
+        except:
+            msg = await bot.send_message(GRUPO_ID, texto, buttons=[[Button.url("👉 CLICK AQUÍ 👈", ENLACE)]])
+            avisos[uid] = msg.id
+    else:
+        msg = await bot.send_message(GRUPO_ID, texto, buttons=[[Button.url("👉 CLICK AQUÍ 👈", ENLACE)]])
+        avisos[uid] = msg.id
 
 @bot.on(events.NewMessage(pattern='/reset'))
 async def reset(event):
