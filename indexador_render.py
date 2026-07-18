@@ -35,10 +35,9 @@ def guardar_canales():
         json.dump(canales, f)
 
 async def enviar_progreso(msg):
-    try:
-        await bot.send_message(ADMIN_ID, msg)
-    except:
-        pass
+    print(f'ENVIANDO: {msg}')
+    await bot.send_message(ADMIN_ID, msg)
+    print('ENVIADO')
 
 def limpiar_titulo(text):
     if not text: return "Sin título"
