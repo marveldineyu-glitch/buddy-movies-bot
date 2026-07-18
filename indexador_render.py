@@ -92,7 +92,7 @@ async def indexar_canal(canal):
         await enviar_progreso(f"❌ {canal}: {e}")
         return 0
 
-bot = TelegramClient('index_bot', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
+bot = TelegramClient('index_bot', API_ID, API_HASH)
 user = TelegramClient(StringSession(SESSION), API_ID, API_HASH)
 
 CANALES_PENDIENTES = [
@@ -129,6 +129,7 @@ async def progreso(event):
     await event.reply(f"📊 {len(title_index)} títulos | 📁 {len(canales)} canales | 📋 {len(CANALES_PENDIENTES)} pendientes")
 
 async def main():
+    await bot.start(bot_token=BOT_TOKEN)
     await user.start()
     await enviar_progreso(f"🚀 Indexador iniciado\n📊 {len(title_index)} títulos cargados\n📋 {len(CANALES_PENDIENTES)} canales por indexar")
     
