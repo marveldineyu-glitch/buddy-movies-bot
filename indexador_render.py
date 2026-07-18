@@ -109,6 +109,26 @@ CANALES_PENDIENTES = [
     "@Solo_Leveling_TEMPORADA", "@joseito_9722"
 ]
 
+@bot.on(events.NewMessage(pattern='/add'))
+async def add_canal(event):
+    if event.sender_id != ADMIN_ID: return
+    texto = event.text.replace('/add', '').strip()
+    nuevos = re.findall(r'@\w+', texto)
+    if not nuevos:
+        await event.reply("❌ /add @canal1 @canal2")
+        return
+    for c in nuevos:
+        if c not in CANALES_PENDIENTES and c not in canales:
+            CANALES_PENDIENTES.append(c)
+            await event.reply(f"✅ {c} añadido a la cola")
+        else:
+            await event.reply(f"⏭️ {c} ya está")
+
+@bot.on(events.NewMessage(pattern='/progreso'))
+async def progreso(event):
+    if event.sender_id != ADMIN_ID: return
+    await event.reply(f"📊 {len(title_index)} títulos | 📁 {len(canales)} canales | 📋 {len(CANALES_PENDIENTES)} pendientes")
+
 async def main():
     await user.start()
     await enviar_progreso(f"🚀 Indexador iniciado\n📊 {len(title_index)} títulos cargados\n📋 {len(CANALES_PENDIENTES)} canales por indexar")
