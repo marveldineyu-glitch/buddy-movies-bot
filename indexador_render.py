@@ -62,7 +62,7 @@ async def indexar_canal(canal):
                         es_video = True
                 
                 if es_video:
-                    txt = m.text or m.caption or ''
+                    txt = m.text or (m.caption if hasattr(m, 'caption') else '') or ''
                     if txt and len(txt) >= 10:
                         ct = limpiar_titulo(txt)
                         words = re.findall(r'\b[a-zA-Z0-9áéíóúñ]+\b', ct.lower())
