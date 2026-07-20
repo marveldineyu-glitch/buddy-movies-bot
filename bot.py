@@ -15,7 +15,6 @@ GRUPO_ID = 2311102965
 ADMIN_ID = 7771137226
 
 os.environ['PYTHONOPTIMIZE'] = '2'
-
 search_queue = deque()
 user_sessions = {}
 
@@ -35,7 +34,6 @@ async def on_bot2_new(event):
     m = event.message
     if not m.sender or not m.sender.bot: return
     if m.text and any(x in m.text.lower() for x in ["buscando", "espera", "recuerda usar", "ayúdanos", "compártelo", "gracias"]): return
-    
     if m.media:
         if search_queue:
             request_id = search_queue.popleft()
@@ -45,8 +43,7 @@ async def on_bot2_new(event):
                 sent = await user.send_file(CANAL, m.media, caption=raw)
                 link = f"https://t.me/{CANAL[1:]}/{sent.id}"
                 title = (raw.split('\n')[0] if raw else "Archivo")[:100]
-                result = await bot.send_message(session['chat'], f"🎬 **Aquí tienes {session['name']}**\n\n📁 **{title}**", buttons=[[Button.url("🎥 VER CONTENIDO", link)]], link_preview=False, reply_to=session['reply_to'])
-                session['result_msg_id'] = result.id
+                await bot.send_message(GRUPO, f"🎬 **Aquí tienes {session['name']}**\n\n📁 **{title}**", buttons=[[Button.url("🎥 VER CONTENIDO", link)]], link_preview=False, reply_to=session['reply_to'])
 
 @user.on(events.MessageEdited(chats=SEARCH_GROUP2))
 async def on_bot2_edit(event):
@@ -54,12 +51,10 @@ async def on_bot2_edit(event):
     if not m.sender or not m.sender.bot: return
     if not m.text: return
     if any(x in m.text.lower() for x in ["buscando", "espera", "recuerda usar", "ayúdanos", "compártelo", "gracias"]): return
-    
-    # El m.id es el ID del mensaje del bot de búsqueda, que es lo que guardamos en search_msg_id
     for request_id, session in list(user_sessions.items()):
-        if session.get('search_msg_id') == m.id or session.get('result_msg_id') == m.id:
+        if session.get('search_msg_id') == m.id:
             try:
-                await bot.edit_message(session['chat'], session['result_msg_id'], m.text[:4000].replace('@TlgramMovieGroup_Bot', '@BuddyMovies_official'), buttons=make_buttons(m))
+                await bot.edit_message(GRUPO, session['result_msg_id'], m.text[:4000].replace('@TlgramMovieGroup_Bot', '@BuddyMovies_official'), buttons=make_buttons(m))
             except: pass
             break
 
@@ -78,7 +73,7 @@ async def on_user(event):
     except:
         name = "Usuario"
     sent_msg = await user.send_message(SEARCH_GROUP2, f"/search {q}")
-    user_sessions[sent_msg.id] = {'chat': event.chat_id, 'name': name, 'reply_to': event.message.id, 'search_msg_id': sent_msg.id, 'result_msg_id': None}
+    user_sessions[sent_msg.id] = {'chat': GRUPO, 'name': name, 'reply_to': event.message.id, 'search_msg_id': sent_msg.id}
     search_queue.append(sent_msg.id)
     if len(user_sessions) > 100:
         oldest = list(user_sessions.keys())[:50]
@@ -88,7 +83,6 @@ async def on_user(event):
 async def on_click(event):
     data = event.data
     if not data: return
-    uid = event.sender_id or event.chat_id
     try:
         sender = await event.get_sender()
         name = sender.first_name or "Usuario"
@@ -114,7 +108,7 @@ async def heartbeat():
 async def main():
     await user.start()
     await bot.start(bot_token=BOT_TOKEN)
-    print(f"✅ Bot listo - {GRUPO} - Cola FIFO")
+    print(f"✅ Bot listo - {GRUPO}")
     asyncio.create_task(heartbeat())
     await asyncio.gather(bot.run_until_disconnected(), user.run_until_disconnected())
 
