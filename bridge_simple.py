@@ -1,4 +1,4 @@
-import asyncio, os, threading, gc, time
+import asyncio, os, threading, gc, time, urllib.request
 from collections import deque, OrderedDict
 from telethon import TelegramClient, events, Button
 from telethon.sessions import StringSession
@@ -17,10 +17,10 @@ os.environ['PYTHONOPTIMIZE'] = '2'
 gc.set_threshold(5000, 50, 50)
 
 search_queue = deque(maxlen=200)
-user_sessions = OrderedDict()
-mirror = OrderedDict()
+user_sessions = OrderedDict()  # {request_id: {user_id, name, reply_to, timestamp}}
+mirror = OrderedDict()  # {search_msg_id: (our_msg_id, chat_id)}
 rate_limit = {}
-button_cache = {}  # {callback_data: (search_msg_id, row_index, btn_index)}
+button_cache = {}
 
 bot = TelegramClient('simple_bot', API_ID, API_HASH, 
                      retry_delay=3, auto_reconnect=True, timeout=20)
@@ -63,7 +63,6 @@ def make_buttons(msg):
         for btn_idx, btn in enumerate(row):
             if btn.data:
                 data = btn.data.decode() if isinstance(btn.data, bytes) else btn.data
-                # Guardar en caché
                 button_cache[data] = (msg.id, row_idx, btn_idx)
                 r.append(Button.inline(btn.text[:50], data[:64]))
             elif btn.url:
@@ -119,21 +118,38 @@ async def on_edit(event):
     if any(x in low for x in ["buscando", "espera"]):
         return
     
-    # Guardar botones en caché
     buttons = make_buttons(m)
+    search_msg_id = m.id
     
-    if m.id in mirror:
-        our_id, _ = mirror[m.id]
+    # CASO 1: Ya tenemos mirror -> editar mensaje existente
+    if search_msg_id in mirror:
+        our_id, chat_id = mirror[search_msg_id]
         try:
-            await bot.edit_message(GRUPO, our_id, m.text[:4000], buttons=buttons)
+            await bot.edit_message(chat_id, our_id, m.text[:4000], buttons=buttons)
             return
         except:
             pass
     
+    # CASO 2: Buscar en TODAS las sesiones activas (múltiples usuarios)
+    for req_id, session in list(user_sessions.items()):
+        if session.get('search_msg_id') == search_msg_id:
+            try:
+                sent = await bot.send_message(
+                    session.get('chat_id', GRUPO),
+                    m.text[:4000],
+                    buttons=buttons
+                )
+                if sent:
+                    mirror[search_msg_id] = (sent.id, session.get('chat_id', GRUPO))
+                return
+            except:
+                pass
+    
+    # CASO 3: Respaldo - enviar al GRUPO
     try:
         sent = await bot.send_message(GRUPO, m.text[:4000], buttons=buttons)
         if sent:
-            mirror[m.id] = (sent.id, GRUPO)
+            mirror[search_msg_id] = (sent.id, GRUPO)
     except Exception as e:
         print(f"❌ Error: {e}")
 
@@ -149,6 +165,7 @@ async def on_msg(event):
         return
     
     user_id = event.sender_id
+    chat_id = event.chat_id
     
     if not check_rate_limit(user_id):
         try:
@@ -166,8 +183,11 @@ async def on_msg(event):
     try:
         sent = await user.send_message(SEARCH_GROUP, f"/search {q}")
         user_sessions[sent.id] = {
+            'user_id': user_id,
+            'chat_id': chat_id,
             'name': name,
             'reply_to': event.message.id,
+            'search_msg_id': sent.id,
             'timestamp': time.time()
         }
         search_queue.append(sent.id)
@@ -180,7 +200,7 @@ async def on_click(event):
     if not data:
         return
     
-    # Buscar en caché PRIMERO (rápido)
+    # Buscar en caché PRIMERO
     if data in button_cache:
         msg_id, row_idx, btn_idx = button_cache[data]
         try:
@@ -193,7 +213,7 @@ async def on_click(event):
         except:
             pass
     
-    # Fallback: buscar en mensajes recientes
+    # Fallback
     try:
         msgs = await user.get_messages(SEARCH_GROUP, limit=30)
         for m in msgs:
@@ -237,4 +257,18 @@ def run_server():
     HTTPServer(("0.0.0.0", int(os.environ.get("PORT", 10000))), H).serve_forever()
 
 threading.Thread(target=run_server, daemon=True).start()
+
+# Keep-alive
+def keep_alive():
+    port = int(os.environ.get("PORT", 10000))
+    url = f"http://localhost:{port}"
+    while True:
+        time.sleep(600)
+        try:
+            urllib.request.urlopen(url, timeout=5)
+        except:
+            pass
+
+threading.Thread(target=keep_alive, daemon=True).start()
+
 asyncio.run(main())
