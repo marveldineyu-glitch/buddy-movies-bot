@@ -1,7 +1,7 @@
 import asyncio, re, gc, os
 from telethon import TelegramClient, events, Button
 from telethon.sessions import StringSession
-from telethon.network import ConnectionTcpFull
+
 
 API_ID = 28074212
 API_HASH = "b18dae908474a377684922f3e9d5b795"
@@ -16,8 +16,8 @@ ADMIN_ID = 7771137226
 os.environ['PYTHONOPTIMIZE'] = '2'
 gc.set_threshold(10000, 100, 100)
 
-bot = TelegramClient('buddy_bot', API_ID, API_HASH, connection=ConnectionTcpFull, retry_delay=5, auto_reconnect=True, timeout=30)
-user = TelegramClient(StringSession(SESSION), API_ID, API_HASH, connection=ConnectionTcpFull, retry_delay=5, auto_reconnect=True, timeout=30)
+bot = TelegramClient('buddy_bot', API_ID, API_HASH, retry_delay=5, auto_reconnect=True, timeout=30)
+user = TelegramClient(StringSession(SESSION), API_ID, API_HASH, retry_delay=5, auto_reconnect=True, timeout=30)
 
 active = {}
 mirror2 = {}
@@ -143,5 +143,17 @@ async def main():
     print(f"✅ Bot listo - {GRUPO}")
     asyncio.create_task(heartbeat())
     await asyncio.gather(bot.run_until_disconnected(), user.run_until_disconnected())
+
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
+class H(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200); self.end_headers(); self.wfile.write(b"OK")
+    def do_HEAD(self):
+        self.send_response(200); self.end_headers()
+def s():
+    p = int(os.environ.get("PORT", 10000))
+    HTTPServer(("0.0.0.0", p), H).serve_forever()
+threading.Thread(target=s, daemon=True).start()
 
 asyncio.run(main())
