@@ -47,6 +47,7 @@ async def on_bot2_new(event):
     if m.text and any(x in m.text.lower() for x in ["buscando", "espera", "recuerda usar", "ayúdanos", "compártelo", "gracias"]): return
     if m.media:
         raw = m.text or ""
+        raw = (m.text or "").replace('@TlgramMovieGroup_Bot', '@BuddyMovies_official')
         sent = await user.send_file(CANAL, m.media, caption=raw)
         link = f"https://t.me/{CANAL[1:]}/{sent.id}"
         title = (raw.split('\n')[0] if raw else "Archivo")[:100]
@@ -62,13 +63,13 @@ async def on_bot2_edit(event):
     
     if m.id in mirror2:
         try:
-            await bot.edit_message(mirror_chat[m.id], mirror2[m.id], m.text[:4000], buttons=make_buttons(m))
+            await bot.edit_message(mirror_chat[m.id], mirror2[m.id], m.text[:4000].replace('@TlgramMovieGroup_Bot', '@BuddyMovies_official'), buttons=make_buttons(m))
             return
         except: pass
     
     uid, chat_id, name = get_user()
     if uid and "Resultados" in m.text:
-        sent = await bot.send_message(chat_id, m.text[:4000], buttons=make_buttons(m))
+        sent = await bot.send_message(chat_id, m.text[:4000].replace('@TlgramMovieGroup_Bot', '@BuddyMovies_official'), buttons=make_buttons(m))
         mirror2[m.id] = sent.id
         mirror_chat[m.id] = chat_id
 
