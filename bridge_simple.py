@@ -11,9 +11,8 @@ BOT_TOKEN = "7812301734:AAHIXx70G83tb41pBczdCcdhHRiBlz43g7A"
 SESSION = "1AZWarzYBu72KHN1Z6-0Q0I9KI7JSZ_3dpMTSuiN6aNsb_STMDHX10-fo09zyXAOhbRSHE0gJJlFU3iRYuqPMAu_U_ka8RuHU98KFxMVTOGWZrilLGBsZSUirNT1C4-8Q4Po3XX_kWI_6GSCEc_pRBgCktyuzZL4rSXwKlCSpx1-NmSqQ-Vb62e47hKUznQugDB31Sl71tM7-3MLMp3EmqbIA_m5f6zA2gZYX4swtE0aCw1Su8neeah5rGTQI7imOISQZRNgStTrmcmBtmUVVPmzqM6-b512Np3cLBv5vIMBchTwqB77ipLEj-xHhdB8hdIPPJtvo9aqQBtZv_faUy-PrhAeiNmo="
 SEARCH_GROUP = "@pooppuuui"
 CANAL = "@BuddyMovies_canal"
-GRUPO = "@mabu205"  # GRUPO FIJO
+GRUPO = "@mabu205"
 
-# ============ ESTADO ============
 os.environ['PYTHONOPTIMIZE'] = '2'
 gc.set_threshold(5000, 50, 50)
 
@@ -21,6 +20,7 @@ search_queue = deque(maxlen=200)
 user_sessions = OrderedDict()
 mirror = OrderedDict()
 rate_limit = {}
+button_cache = {}  # {callback_data: (search_msg_id, row_index, btn_index)}
 
 bot = TelegramClient('simple_bot', API_ID, API_HASH, 
                      retry_delay=3, auto_reconnect=True, timeout=20)
@@ -36,6 +36,10 @@ def clean_memory():
         oldest = list(mirror.keys())[:50]
         for k in oldest:
             mirror.pop(k, None)
+    if len(button_cache) > 500:
+        oldest = list(button_cache.keys())[:250]
+        for k in oldest:
+            button_cache.pop(k, None)
     gc.collect()
 
 def check_rate_limit(user_id):
@@ -54,18 +58,20 @@ def make_buttons(msg):
     if not msg or not msg.buttons:
         return None
     btns = []
-    for row in msg.buttons:
+    for row_idx, row in enumerate(msg.buttons):
         r = []
-        for btn in row:
+        for btn_idx, btn in enumerate(row):
             if btn.data:
-                r.append(Button.inline(btn.text[:50], btn.data[:64]))
+                data = btn.data.decode() if isinstance(btn.data, bytes) else btn.data
+                # Guardar en caché
+                button_cache[data] = (msg.id, row_idx, btn_idx)
+                r.append(Button.inline(btn.text[:50], data[:64]))
             elif btn.url:
                 r.append(Button.url(btn.text[:50], btn.url))
         if r:
             btns.append(r)
     return btns if btns else None
 
-# ============ RESULTADOS -> SIEMPRE AL GRUPO ============
 @user.on(events.NewMessage(chats=SEARCH_GROUP))
 async def on_result(event):
     clean_memory()
@@ -91,15 +97,13 @@ async def on_result(event):
             link = f"https://t.me/{CANAL[1:]}/{sent.id}"
             title = raw.split('\n')[0][:80] if raw else "Archivo"
             
-            # SIEMPRE ENVIAR AL GRUPO
             await bot.send_message(
-                GRUPO,  # <-- GRUPO FIJO
+                GRUPO,
                 f"🎬 **{name}**\n📁 {title}\n\n🔗 {link}",
                 buttons=[[Button.url("🎥 VER CONTENIDO", link)]],
                 link_preview=False,
                 reply_to=reply_to
             )
-            print(f"✅ Enviado a {GRUPO} para {name}")
         except Exception as e:
             print(f"❌ Error: {e}")
 
@@ -115,34 +119,24 @@ async def on_edit(event):
     if any(x in low for x in ["buscando", "espera"]):
         return
     
-    # Intentar editar en mirror
+    # Guardar botones en caché
+    buttons = make_buttons(m)
+    
     if m.id in mirror:
         our_id, _ = mirror[m.id]
         try:
-            await bot.edit_message(
-                GRUPO, our_id,  # <-- GRUPO FIJO
-                m.text[:4000],
-                buttons=make_buttons(m)
-            )
-            print(f"✅ Editado en {GRUPO}")
+            await bot.edit_message(GRUPO, our_id, m.text[:4000], buttons=buttons)
             return
-        except Exception as e:
-            print(f"❌ Error edit: {e}")
+        except:
+            pass
     
-    # Si no está en mirror, enviar nuevo al GRUPO
     try:
-        sent = await bot.send_message(
-            GRUPO,  # <-- GRUPO FIJO
-            m.text[:4000],
-            buttons=make_buttons(m)
-        )
+        sent = await bot.send_message(GRUPO, m.text[:4000], buttons=buttons)
         if sent:
             mirror[m.id] = (sent.id, GRUPO)
-        print(f"✅ Nuevo mensaje en {GRUPO}")
     except Exception as e:
         print(f"❌ Error: {e}")
 
-# ============ RECIBIR BÚSQUEDAS ============
 @bot.on(events.NewMessage)
 async def on_msg(event):
     clean_memory()
@@ -156,7 +150,6 @@ async def on_msg(event):
     
     user_id = event.sender_id
     
-    # Rate limit
     if not check_rate_limit(user_id):
         try:
             await event.reply("⏳ Espera un momento...")
@@ -178,9 +171,8 @@ async def on_msg(event):
             'timestamp': time.time()
         }
         search_queue.append(sent.id)
-        print(f"🔍 {name}: {q}")
     except Exception as e:
-        print(f"❌ Error búsqueda: {e}")
+        print(f"❌ Error: {e}")
 
 @bot.on(events.CallbackQuery)
 async def on_click(event):
@@ -188,22 +180,36 @@ async def on_click(event):
     if not data:
         return
     
+    # Buscar en caché PRIMERO (rápido)
+    if data in button_cache:
+        msg_id, row_idx, btn_idx = button_cache[data]
+        try:
+            msgs = await user.get_messages(SEARCH_GROUP, ids=[msg_id])
+            if msgs and msgs[0].buttons:
+                btn = msgs[0].buttons[row_idx][btn_idx]
+                await event.answer("⚡ Cargando...")
+                await btn.click()
+                return
+        except:
+            pass
+    
+    # Fallback: buscar en mensajes recientes
     try:
-        msgs = await user.get_messages(SEARCH_GROUP, limit=20)
+        msgs = await user.get_messages(SEARCH_GROUP, limit=30)
         for m in msgs:
             if m.sender and m.sender.bot and m.buttons:
                 for row in m.buttons:
                     for btn in row:
-                        if btn.data == data:
-                            await event.answer("⚡")
+                        btn_data = btn.data.decode() if isinstance(btn.data, bytes) else btn.data
+                        if btn_data == data:
+                            await event.answer("⚡ Cargando...")
                             await btn.click()
                             return
     except:
         pass
     
-    await event.answer("⏳ Expiró. Busca de nuevo.")
+    await event.answer("⏳ Sesión expirada. Busca de nuevo.", show_alert=True)
 
-# ============ ARRANQUE ============
 async def heartbeat():
     while True:
         await asyncio.sleep(180)
@@ -211,7 +217,6 @@ async def heartbeat():
             await bot.get_me()
             await user.get_me()
             clean_memory()
-            print(f"💓 Heartbeat - Sesiones: {len(user_sessions)}")
         except:
             pass
 
