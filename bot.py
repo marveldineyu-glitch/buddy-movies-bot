@@ -1,7 +1,7 @@
-import asyncio, re, gc, os
+import asyncio, re, gc, os, threading
 from telethon import TelegramClient, events, Button
 from telethon.sessions import StringSession
-
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 API_ID = 28074212
 API_HASH = "b18dae908474a377684922f3e9d5b795"
@@ -16,35 +16,20 @@ ADMIN_ID = 7771137226
 os.environ['PYTHONOPTIMIZE'] = '2'
 gc.set_threshold(10000, 100, 100)
 
-bot = TelegramClient('buddy_bot', API_ID, API_HASH, retry_delay=5, auto_reconnect=True, timeout=30)
-user = TelegramClient(StringSession(SESSION), API_ID, API_HASH, retry_delay=5, auto_reconnect=True, timeout=30)
+bot = TelegramClient('buddy_bot', API_ID, API_HASH)
+user = TelegramClient(StringSession(SESSION), API_ID, API_HASH)
 
 active = {}
 mirror2 = {}
 mirror_chat = {}
-MAX_CACHE = 50
 
-def clean_memory():
-    for d in [active, mirror2, mirror_chat]:
-        if len(d) > MAX_CACHE:
-            oldest = list(d.keys())[:10]
-            for k in oldest: del d[k]
-    gc.collect()
-
-def replace_ads(text):
-    if not text: return text
-    return text.replace("@TlgramMovieGroup_Bot", "@BuddyMovies_Bot")
-
-def clean_caption(text):
-    if not text: return ""
-    lines = text.split('\n')
-    cut = len(lines)
-    for i in range(len(lines)-1, -1, -1):
-        if ('─' in lines[i] or '━' in lines[i]) and i > 0:
-            if i+1 < len(lines) and ('@' in lines[i+1] or '➠' in lines[i+1]):
-                cut = i
-                break
-    return '\n'.join(lines[:cut]).strip()
+def make_buttons(msg):
+    if not msg.buttons: return None
+    btns = []
+    for row in msg.buttons:
+        r = [Button.inline(btn.text, btn.data) if btn.data else Button.url(btn.text, btn.url) for btn in row]
+        btns.append(r)
+    return btns
 
 def get_user():
     if not active: return None, None, "Usuario"
@@ -55,43 +40,40 @@ def get_user():
 
 @user.on(events.NewMessage(chats=SEARCH_GROUP2))
 async def on_bot2_new(event):
-    clean_memory()
     m = event.message
     if not m.sender or not m.sender.bot: return
     uid, chat_id, name = get_user()
     if not uid: return
     if m.text and any(x in m.text.lower() for x in ["buscando", "espera", "recuerda usar", "ayúdanos", "compártelo", "gracias"]): return
     if m.media:
-        raw = replace_ads(m.text or "")
+        raw = m.text or ""
         sent = await user.send_file(CANAL, m.media, caption=raw)
         link = f"https://t.me/{CANAL[1:]}/{sent.id}"
-        title = clean_caption(raw).split('\n')[0] or "Archivo"
+        title = (raw.split('\n')[0] if raw else "Archivo")[:100]
         reply_to = active[uid].get('reply_to') if uid in active else None
-        await bot.send_message(GRUPO, f"🎬 **Aquí tienes {name}**\n\n📁 **{title}**", buttons=[[Button.url("🎥 VER CONTENIDO", link)]], link_preview=False, reply_to=reply_to)
+        await bot.send_message(chat_id, f"🎬 **Aquí tienes {name}**\n\n📁 **{title}**", buttons=[[Button.url("🎥 VER CONTENIDO", link)]], link_preview=False, reply_to=reply_to)
 
 @user.on(events.MessageEdited(chats=SEARCH_GROUP2))
 async def on_bot2_edit(event):
-    clean_memory()
     m = event.message
     if not m.sender or not m.sender.bot: return
     if not m.text: return
     if any(x in m.text.lower() for x in ["buscando", "espera", "recuerda usar", "ayúdanos", "compártelo", "gracias"]): return
-    search_msg_id = m.id
-    if search_msg_id in mirror2:
+    
+    if m.id in mirror2:
         try:
-            await bot.edit_message(mirror_chat[search_msg_id], mirror2[search_msg_id], m.text[:4000], buttons=None)
+            await bot.edit_message(mirror_chat[m.id], mirror2[m.id], m.text[:4000], buttons=make_buttons(m))
             return
         except: pass
+    
     uid, chat_id, name = get_user()
     if uid and "Resultados" in m.text:
-        sent = await bot.send_message(chat_id, m.text[:4000])
-        mirror2[search_msg_id] = sent.id
-        mirror_chat[search_msg_id] = chat_id
+        sent = await bot.send_message(chat_id, m.text[:4000], buttons=make_buttons(m))
+        mirror2[m.id] = sent.id
+        mirror_chat[m.id] = chat_id
 
 @bot.on(events.NewMessage)
 async def on_user(event):
-    clean_memory()
-    if event.chat_id == GRUPO_ID: return
     if event.out: return
     if event.is_private and event.sender_id != ADMIN_ID:
         await event.reply(f"👋 ¡Hola!\n\nSolo funciono en el grupo:\n👉 {GRUPO}")
@@ -112,12 +94,7 @@ async def on_click(event):
     data = event.data
     if not data: return
     uid = event.sender_id or event.chat_id
-    try:
-        sender = await bot.get_entity(uid)
-        name = sender.first_name or "Usuario"
-    except:
-        name = "Usuario"
-    active[uid] = {'chat': event.chat_id, 'name': name}
+    active[uid] = {'chat': event.chat_id, 'name': (await event.get_sender()).first_name or "Usuario"}
     msgs = await user.get_messages(SEARCH_GROUP2, limit=10)
     for m in msgs:
         if m.sender and m.sender.bot and m.buttons:
@@ -132,9 +109,7 @@ async def on_click(event):
 async def heartbeat():
     while True:
         await asyncio.sleep(300)
-        try:
-            await bot.get_me()
-            await user.get_me()
+        try: await bot.get_me()
         except: pass
 
 async def main():
@@ -144,16 +119,13 @@ async def main():
     asyncio.create_task(heartbeat())
     await asyncio.gather(bot.run_until_disconnected(), user.run_until_disconnected())
 
-import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
 class H(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200); self.end_headers(); self.wfile.write(b"OK")
     def do_HEAD(self):
         self.send_response(200); self.end_headers()
 def s():
-    p = int(os.environ.get("PORT", 10000))
-    HTTPServer(("0.0.0.0", p), H).serve_forever()
+    HTTPServer(("0.0.0.0", int(os.environ.get("PORT", 10000))), H).serve_forever()
 threading.Thread(target=s, daemon=True).start()
 
 asyncio.run(main())
