@@ -45,7 +45,8 @@ async def on_bot2_new(event):
                 sent = await user.send_file(CANAL, m.media, caption=raw)
                 link = f"https://t.me/{CANAL[1:]}/{sent.id}"
                 title = (raw.split('\n')[0] if raw else "Archivo")[:100]
-                await bot.send_message(session['chat'], f"🎬 **Aquí tienes {session['name']}**\n\n📁 **{title}**", buttons=[[Button.url("🎥 VER CONTENIDO", link)]], link_preview=False, reply_to=session['reply_to'])
+                result = await bot.send_message(session['chat'], f"🎬 **Aquí tienes {session['name']}**\n\n📁 **{title}**", buttons=[[Button.url("🎥 VER CONTENIDO", link)]], link_preview=False, reply_to=session['reply_to'])
+                session['result_msg_id'] = result.id
 
 @user.on(events.MessageEdited(chats=SEARCH_GROUP2))
 async def on_bot2_edit(event):
@@ -54,8 +55,9 @@ async def on_bot2_edit(event):
     if not m.text: return
     if any(x in m.text.lower() for x in ["buscando", "espera", "recuerda usar", "ayúdanos", "compártelo", "gracias"]): return
     
+    # El m.id es el ID del mensaje del bot de búsqueda, que es lo que guardamos en search_msg_id
     for request_id, session in list(user_sessions.items()):
-        if session.get('search_msg_id') == m.id:
+        if session.get('search_msg_id') == m.id or session.get('result_msg_id') == m.id:
             try:
                 await bot.edit_message(session['chat'], session['result_msg_id'], m.text[:4000].replace('@TlgramMovieGroup_Bot', '@BuddyMovies_official'), buttons=make_buttons(m))
             except: pass
@@ -76,7 +78,7 @@ async def on_user(event):
     except:
         name = "Usuario"
     sent_msg = await user.send_message(SEARCH_GROUP2, f"/search {q}")
-    user_sessions[sent_msg.id] = {'chat': event.chat_id, 'name': name, 'reply_to': event.message.id, 'search_msg_id': sent_msg.id}
+    user_sessions[sent_msg.id] = {'chat': event.chat_id, 'name': name, 'reply_to': event.message.id, 'search_msg_id': sent_msg.id, 'result_msg_id': None}
     search_queue.append(sent_msg.id)
     if len(user_sessions) > 100:
         oldest = list(user_sessions.keys())[:50]
