@@ -1,12 +1,32 @@
-import asyncio, re, gc, os, threading
+import asyncio, re, gc, os, threading, socket, sys, time, random
 from telethon import TelegramClient, events, Button
 from telethon.sessions import StringSession
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
+# ============ BLOQUEO ANTI-DUPLICADO MEJORADO ============
+# Esperar un tiempo aleatorio para que la primera instancia tome la sesión
+time.sleep(random.randint(1, 5))
+
+# Verificar si hay otra instancia corriendo
+lock_file = "/tmp/buddy_bot.lock"
+if os.path.exists(lock_file):
+    with open(lock_file) as f:
+        pid = f.read().strip()
+    try:
+        os.kill(int(pid), 0)
+        print(f"❌ Ya hay una instancia corriendo (PID {pid}). Saliendo...")
+        sys.exit(0)
+    except:
+        os.remove(lock_file)
+
+# Crear archivo de bloqueo
+with open(lock_file, 'w') as f:
+    f.write(str(os.getpid()))
+
 API_ID = 28074212
 API_HASH = "b18dae908474a377684922f3e9d5b795"
 BOT_TOKEN = "8984212389:AAFZMh_ZQZm8DlIqPLvQEljnC1UPVtRJV-Q"
-SESSION = "1AZWarzkBu14FNj4w0ZhJiodVvjAWJGVSlCgaM8tbwae7x6xavyHD61MU5J58NOvGUjrcQWnJm_ZO8VeUsdilrHMPaxH3V8U8h3vHq1x8Ti6FMAsvaglbYKK49pZ5gC79AzMK6bP0HpYWMU5QkJuAGKQ_Pe69Ox6oI6db5YQ2eKp_ZxPLSXn6VrkYgItcr3ZxlcQgGVqXmoa0qbt_xqiHN2EG8ZQCLv-Quy2p9NPCsoThUpAaj5dxYh7GAInQL2UujlrgkBfH_IHHYUNVpEboYv_1pe34S2uAS5GoHsEX5r6zTIjQb-E6nzmzMimexxAFdOFdQzFj1ct4eC6rTuid9-lJb_Dlhc8="
+SESSION = "1AZWarzYBu72KHN1Z6-0Q0I9KI7JSZ_3dpMTSuiN6aNsb_STMDHX10-fo09zyXAOhbRSHE0gJJlFU3iRYuqPMAu_U_ka8RuHU98KFxMVTOGWZrilLGBsZSUirNT1C4-8Q4Po3XX_kWI_6GSCEc_pRBgCktyuzZL4rSXwKlCSpx1-NmSqQ-Vb62e47hKUznQugDB31Sl71tM7-3MLMp3EmqbIA_m5f6zA2gZYX4swtE0aCw1Su8neeah5rGTQI7imOISQZRNgStTrmcmBtmUVVPmzqM6-b512Np3cLBv5vIMBchTwqB77ipLEj-xHhdB8hdIPPJtvo9aqQBtZv_faUy-PrhAeiNmo="
 SEARCH_GROUP2 = "@pooppuuui"
 CANAL = "@BuddyMovies_canal"
 GRUPO = "@BuddyMovies_official"
@@ -45,7 +65,7 @@ async def on_bot2_new(event):
     if not uid: return
     if m.text and any(x in m.text.lower() for x in ["buscando", "espera", "recuerda usar", "ayúdanos", "compártelo", "gracias"]): return
     if m.media:
-        raw = m.text or ""
+        raw = (m.text or "").replace('@TlgramMovieGroup_Bot', '@BuddyMovies_official')
         sent = await user.send_file(CANAL, m.media, caption=raw)
         link = f"https://t.me/{CANAL[1:]}/{sent.id}"
         title = (raw.split('\n')[0] if raw else "Archivo")[:100]
@@ -60,12 +80,12 @@ async def on_bot2_edit(event):
     if any(x in m.text.lower() for x in ["buscando", "espera", "recuerda usar", "ayúdanos", "compártelo", "gracias"]): return
     if m.id in mirror2:
         try:
-            await bot.edit_message(mirror_chat[m.id], mirror2[m.id], m.text[:4000], buttons=make_buttons(m))
+            await bot.edit_message(mirror_chat[m.id], mirror2[m.id], m.text[:4000].replace('@TlgramMovieGroup_Bot', '@BuddyMovies_official'), buttons=make_buttons(m))
             return
         except: pass
     uid, chat_id, name = get_user()
     if uid and "Resultados" in m.text:
-        sent = await bot.send_message(chat_id, m.text[:4000], buttons=make_buttons(m))
+        sent = await bot.send_message(chat_id, m.text[:4000].replace('@TlgramMovieGroup_Bot', '@BuddyMovies_official'), buttons=make_buttons(m))
         mirror2[m.id] = sent.id
         mirror_chat[m.id] = chat_id
 
@@ -108,6 +128,7 @@ async def heartbeat():
         await asyncio.sleep(300)
         try: await bot.get_me()
         except: pass
+        gc.collect()
 
 async def main():
     await user.start()
@@ -125,4 +146,8 @@ def s():
     HTTPServer(("0.0.0.0", int(os.environ.get("PORT", 10000))), H).serve_forever()
 threading.Thread(target=s, daemon=True).start()
 
-asyncio.run(main())
+try:
+    asyncio.run(main())
+finally:
+    if os.path.exists(lock_file):
+        os.remove(lock_file)
