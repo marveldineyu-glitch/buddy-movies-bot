@@ -13,6 +13,16 @@ GRUPO = "@mabu205"
 
 bot = TelegramClient('simple_bot', API_ID, API_HASH)
 user = TelegramClient(StringSession(SESSION), API_ID, API_HASH)
+mirror = {}
+mirror_chat = {}
+
+def make_buttons(msg):
+    if not msg.buttons: return None
+    btns = []
+    for row in msg.buttons:
+        r = [Button.inline(btn.text, btn.data) if btn.data else Button.url(btn.text, btn.url) for btn in row]
+        btns.append(r)
+    return btns
 
 @user.on(events.NewMessage(chats=SEARCH_GROUP))
 async def on_result(event):
@@ -28,8 +38,16 @@ async def on_result(event):
 async def on_edit(event):
     m = event.message
     if not m.sender or not m.sender.bot: return
-    if m.text and "Resultados" in m.text:
-        await bot.send_message(GRUPO, m.text[:4000])
+    if not m.text: return
+    if "buscando" in m.text.lower() or "espera" in m.text.lower(): return
+    if m.id in mirror:
+        try:
+            await bot.edit_message(mirror_chat[m.id], mirror[m.id], m.text[:4000], buttons=make_buttons(m))
+            return
+        except: pass
+    sent = await bot.send_message(GRUPO, m.text[:4000], buttons=make_buttons(m))
+    mirror[m.id] = sent.id
+    mirror_chat[m.id] = GRUPO
 
 @bot.on(events.NewMessage)
 async def on_msg(event):
@@ -41,7 +59,7 @@ async def on_msg(event):
 async def main():
     await user.start()
     await bot.start(bot_token=BOT_TOKEN)
-    print("✅ Simple Bridge listo")
+    print("✅ Bridge listo")
     await asyncio.gather(bot.run_until_disconnected(), user.run_until_disconnected())
 
 class H(BaseHTTPRequestHandler):
