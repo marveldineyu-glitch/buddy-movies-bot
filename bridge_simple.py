@@ -4,7 +4,6 @@ from telethon import TelegramClient, events, Button
 from telethon.sessions import StringSession
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-# ============ CONFIG ============
 API_ID = 28074212
 API_HASH = "b18dae908474a377684922f3e9d5b795"
 BOT_TOKEN = "7812301734:AAHIXx70G83tb41pBczdCcdhHRiBlz43g7A"
@@ -17,10 +16,9 @@ os.environ['PYTHONOPTIMIZE'] = '2'
 gc.set_threshold(5000, 50, 50)
 
 search_queue = deque(maxlen=200)
-user_sessions = OrderedDict()  # {request_id: {user_id, name, reply_to, timestamp}}
-mirror = OrderedDict()  # {search_msg_id: (our_msg_id, chat_id)}
+user_sessions = OrderedDict()
+mirror = OrderedDict()
 rate_limit = {}
-button_cache = {}
 
 bot = TelegramClient('simple_bot', API_ID, API_HASH, 
                      retry_delay=3, auto_reconnect=True, timeout=20)
@@ -36,10 +34,6 @@ def clean_memory():
         oldest = list(mirror.keys())[:50]
         for k in oldest:
             mirror.pop(k, None)
-    if len(button_cache) > 500:
-        oldest = list(button_cache.keys())[:250]
-        for k in oldest:
-            button_cache.pop(k, None)
     gc.collect()
 
 def check_rate_limit(user_id):
@@ -58,12 +52,11 @@ def make_buttons(msg):
     if not msg or not msg.buttons:
         return None
     btns = []
-    for row_idx, row in enumerate(msg.buttons):
+    for row in msg.buttons:
         r = []
-        for btn_idx, btn in enumerate(row):
+        for btn in row:
             if btn.data:
                 data = btn.data.decode() if isinstance(btn.data, bytes) else btn.data
-                button_cache[data] = (msg.id, row_idx, btn_idx)
                 r.append(Button.inline(btn.text[:50], data[:64]))
             elif btn.url:
                 r.append(Button.url(btn.text[:50], btn.url))
@@ -118,19 +111,20 @@ async def on_edit(event):
     if any(x in low for x in ["buscando", "espera"]):
         return
     
-    buttons = make_buttons(m)
     search_msg_id = m.id
+    buttons = make_buttons(m)
     
-    # CASO 1: Ya tenemos mirror -> editar mensaje existente
+    # CASO 1: Editar mensaje existente en mirror
     if search_msg_id in mirror:
         our_id, chat_id = mirror[search_msg_id]
         try:
             await bot.edit_message(chat_id, our_id, m.text[:4000], buttons=buttons)
             return
         except:
-            pass
+            # Si falla, eliminar mirror y enviar nuevo
+            mirror.pop(search_msg_id, None)
     
-    # CASO 2: Buscar en TODAS las sesiones activas (múltiples usuarios)
+    # CASO 2: Buscar sesión activa
     for req_id, session in list(user_sessions.items()):
         if session.get('search_msg_id') == search_msg_id:
             try:
@@ -145,13 +139,13 @@ async def on_edit(event):
             except:
                 pass
     
-    # CASO 3: Respaldo - enviar al GRUPO
+    # CASO 3: Respaldo
     try:
         sent = await bot.send_message(GRUPO, m.text[:4000], buttons=buttons)
         if sent:
             mirror[search_msg_id] = (sent.id, GRUPO)
-    except Exception as e:
-        print(f"❌ Error: {e}")
+    except:
+        pass
 
 @bot.on(events.NewMessage)
 async def on_msg(event):
@@ -200,20 +194,29 @@ async def on_click(event):
     if not data:
         return
     
-    # Buscar en caché PRIMERO
-    if data in button_cache:
-        msg_id, row_idx, btn_idx = button_cache[data]
-        try:
-            msgs = await user.get_messages(SEARCH_GROUP, ids=[msg_id])
-            if msgs and msgs[0].buttons:
-                btn = msgs[0].buttons[row_idx][btn_idx]
-                await event.answer("⚡ Cargando...")
-                await btn.click()
-                return
-        except:
-            pass
+    # REENVIAR EL CLICK al mensaje original en SEARCH_GROUP
+    # Buscar en mirror por el msg_id del mensaje clickeado
+    clicked_msg_id = event.message_id
     
-    # Fallback
+    # Encontrar el search_msg_id que corresponde a este mensaje
+    for search_msg_id, (our_id, chat_id) in list(mirror.items()):
+        if our_id == clicked_msg_id:
+            try:
+                # Obtener el mensaje original del bot de búsqueda
+                msgs = await user.get_messages(SEARCH_GROUP, ids=[search_msg_id])
+                if msgs and msgs[0].buttons:
+                    # Buscar el botón con ese callback_data y clickearlo
+                    for row in msgs[0].buttons:
+                        for btn in row:
+                            btn_data = btn.data.decode() if isinstance(btn.data, bytes) else btn.data
+                            if btn_data == data:
+                                await event.answer("⚡ Cargando...")
+                                await btn.click()
+                                return
+            except:
+                pass
+    
+    # Fallback: buscar en mensajes recientes
     try:
         msgs = await user.get_messages(SEARCH_GROUP, limit=30)
         for m in msgs:
@@ -228,7 +231,7 @@ async def on_click(event):
     except:
         pass
     
-    await event.answer("⏳ Sesión expirada. Busca de nuevo.", show_alert=True)
+    await event.answer("⏳ Búsqueda expirada. Busca de nuevo.", show_alert=True)
 
 async def heartbeat():
     while True:
@@ -258,7 +261,6 @@ def run_server():
 
 threading.Thread(target=run_server, daemon=True).start()
 
-# Keep-alive
 def keep_alive():
     port = int(os.environ.get("PORT", 10000))
     url = f"http://localhost:{port}"
