@@ -10,8 +10,8 @@ API_HASH = "b18dae908474a377684922f3e9d5b795"
 BOT_TOKEN = "8463069047:AAGeZg0IQd-1-Mv3ubxqnwZY1oJgxio9hr8"
 SESSION = "1AZWarzQBuzncKy_mbzKcjlq0_XeKVuhMaiHWMBs3kkt9hmss9EcHTh9f9RtgQYkoDx4oXfLs8rnlwzNA8AHxmt47X2J3r4YJr0QVNVzX3meQKnDv1EKsnctVofcPlsHGuXPZutTrhs0-rtMFXO8TYMESuLbcu0BlENZDA6LVWzItTe17yMvgWexGLJMIyhO-yIrRxHr4838YkKxdxUflsSkjtSZIV8W4EWtrd6eOcTcZbaQyJEUT6jcyXrePbmfaOjMoOsx1PJF1dQisoPP_C-mRSHgp59Za4LmBM4EqQgzXeoPdUdXFRDkCJAfjzc3p6lnU7HqEtcKmm2EIzY43vj_iKSroOOo="
 SEARCH_GROUP = "@TlgramMovieSearch_Bot"
-CANAL = "@prueba22299"
-GRUPO = "@mabu205"
+CANAL = "@BuddyMovies_canal"
+GRUPO = "@BuddyMovies_official"
 
 os.environ['PYTHONOPTIMIZE'] = '2'
 gc.set_threshold(5000, 50, 50)
