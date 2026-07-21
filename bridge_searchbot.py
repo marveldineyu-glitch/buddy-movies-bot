@@ -101,8 +101,10 @@ async def on_bot3(event):
             return
     
     if m.media:
+        print(f"📁 ARCHIVO RECIBIDO: {m.text[:80] if m.text else 'Sin texto'}")
         raw = replace_ads(m.text or "")
         sent = await user.send_file(CANAL, m.media, caption=raw)
+        print(f"📤 Enviado a canal: {sent.id}")
         link = f"https://t.me/{CANAL[1:]}/{sent.id}"
         title = (m.text or "Archivo").split('\n')[0][:80]
         await bot.send_message(
