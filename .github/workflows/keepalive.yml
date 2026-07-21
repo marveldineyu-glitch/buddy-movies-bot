@@ -9,5 +9,8 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Render
+      - name: Ping bridge-simple
         run: curl -s -o /dev/null -w "%{http_code}" https://bridge-simple-test.onrender.com && echo ""
+      
+      - name: Ping bridge-searchbot
+        run: curl -s -o /dev/null -w "%{http_code}" https://bridge-searchbot.onrender.com && echo ""
