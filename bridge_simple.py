@@ -180,10 +180,7 @@ async def on_msg(event):
         )
         return
     
-    # SOLO FUNCIONA EN EL GRUPO @mabu205
-    if event.chat_id != GRUPO_ID:
-        return
-    
+    # Aceptar cualquier chat (el bot solo está en @BuddyMovies_official)
     if event.out or not event.text:
         return
     
