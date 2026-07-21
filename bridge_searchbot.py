@@ -89,6 +89,10 @@ def replace_ads(text):
     # Quitar @BuddyNotify_Bot del final
     text = re.sub(r'\n@BuddyNotify_Bot\s*$', '', text)
     text = re.sub(r'@BuddyNotify_Bot\s*$', '', text)
+    
+    # Si es mensaje de "no encontrado", eliminar botones
+    if 'no se encontraron' in text.lower() or 'no se encontró' in text.lower():
+        return text
     return text
 # ============ RESULTADOS ============
 @user.on(events.NewMessage(chats=SEARCH_GROUP))
