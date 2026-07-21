@@ -16,11 +16,9 @@ GRUPO = "@BuddyMovies_official"
 os.environ['PYTHONOPTIMIZE'] = '2'
 gc.set_threshold(5000, 50, 50)
 
-# ============ ESTADO OPTIMIZADO ============
-user_sessions = OrderedDict()  # {search_msg_id: {user_id, name, reply_to}}
-search_results = {}  # {search_msg_id: (chat_id, result_msg_id)}  # {user_id: {name, reply_to, timestamp}}
-search_results = {}  # {search_msg_id: (chat_id, result_msg_id)} - para editar el correcto
-button_map = {}  # {callback_data: (search_msg_id, row_idx, btn_idx)} - RESPUESTA INSTANTÁNEA
+user_sessions = OrderedDict()
+search_results = {}
+button_map = {}
 rate_limit = {}
 
 bot = TelegramClient('buddy_bot2', API_ID, API_HASH, 
@@ -56,7 +54,6 @@ def check_rate_limit(user_id):
     return True
 
 def cache_buttons(msg):
-    """Guarda botones en caché para respuesta instantánea"""
     if not msg or not msg.buttons:
         return None
     btns = []
@@ -65,7 +62,6 @@ def cache_buttons(msg):
         for btn_idx, btn in enumerate(row):
             if btn.data:
                 data = btn.data.decode() if isinstance(btn.data, bytes) else btn.data
-                # Guardar en caché: data -> (msg_id, row, col)
                 button_map[data] = (msg.id, row_idx, btn_idx)
                 r.append(Button.inline(btn.text[:50], data[:64]))
             elif btn.url:
@@ -96,10 +92,13 @@ async def on_result(event):
             return
     
     if m.media:
-        # Buscar usuario con búsqueda activa más reciente
-        if user_sessions:
+        # Buscar la sesión correcta
+        session = user_sessions.get(m.id, None)
+        if not session and user_sessions:
             uid = list(user_sessions.keys())[-1]
             session = user_sessions[uid]
+        
+        if session:
             name = session.get('name', 'Usuario')
             reply_to = session.get('reply_to')
             
@@ -116,13 +115,11 @@ async def on_result(event):
                 reply_to=reply_to
             )
     
-    # También manejar resultados de texto (paginación)
     elif m.text and m.buttons and len(m.text) > 20:
         buttons = cache_buttons(m)
         text = replace_ads(m.text)
         search_msg_id = m.id
         
-        # Ver si ya existe un mensaje para este search_msg_id
         if search_msg_id in search_results:
             chat_id, result_msg_id = search_results[search_msg_id]
             try:
@@ -131,8 +128,8 @@ async def on_result(event):
             except:
                 pass
         
-        # Enviar nuevo
-        for uid, session in list(user_sessions.items()):
+        session = user_sessions.get(search_msg_id, None)
+        if session:
             try:
                 sent = await bot.send_message(
                     session.get('chat_id', GRUPO),
@@ -144,7 +141,6 @@ async def on_result(event):
                     search_results[search_msg_id] = (session.get('chat_id', GRUPO), sent.id)
             except:
                 pass
-            break
 
 @user.on(events.MessageEdited(chats=SEARCH_GROUP))
 async def on_edit(event):
@@ -158,12 +154,10 @@ async def on_edit(event):
     if any(x in low for x in ["buscando", "espera"]):
         return
     
-    # Cachear botones
     buttons = cache_buttons(m)
     text = replace_ads(m.text)
-    
-    # EDITAR el mensaje correcto usando search_msg_id
     search_msg_id = m.id
+    
     if search_msg_id in search_results:
         chat_id, result_msg_id = search_results[search_msg_id]
         try:
@@ -172,7 +166,6 @@ async def on_edit(event):
         except:
             pass
     
-    # Si no existe, enviar nuevo al último usuario
     session = user_sessions.get(search_msg_id, None)
     if session:
         try:
@@ -192,7 +185,6 @@ async def on_edit(event):
 async def on_user_msg(event):
     clean_memory()
     
-    # PV: redirigir
     if event.is_private:
         await event.reply(
             "🎬 <b>¡BuddyPelis!</b>\n\n"
@@ -226,20 +218,14 @@ async def on_user_msg(event):
     except:
         name = "Usuario"
     
-    # Guardar sesión del usuario
-    user_sessions[user_id] = {
+    sent = await user.send_message(SEARCH_GROUP, f"/search {q}")
+    user_sessions[sent.id] = {
+        'user_id': user_id,
         'name': name,
         'chat_id': event.chat_id,
         'reply_to': event.message.id,
         'timestamp': time.time()
     }
-    
-    # Limpiar botones viejos de este usuario
-    button_map.clear()
-    
-    # Enviar búsqueda y guardar referencia
-    sent = await user.send_message(SEARCH_GROUP, f"/search {q}")
-    user_sessions[user_id]['search_msg_id'] = sent.id
 
 # ============ CALLBACKS INSTANTÁNEOS ============
 @bot.on(events.CallbackQuery)
@@ -248,7 +234,6 @@ async def on_click(event):
     if not data:
         return
     
-    # RESPUESTA INSTANTÁNEA desde caché
     if data in button_map:
         msg_id, row_idx, btn_idx = button_map[data]
         try:
@@ -261,7 +246,6 @@ async def on_click(event):
         except:
             pass
     
-    # Fallback: buscar en mensajes recientes
     try:
         msgs = await user.get_messages(SEARCH_GROUP, limit=50)
         for m in msgs:
