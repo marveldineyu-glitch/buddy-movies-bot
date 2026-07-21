@@ -131,7 +131,7 @@ async def on_result(event):
     
     # También manejar resultados de texto (paginación)
     elif m.text and m.buttons and len(m.text) > 20:
-        buttons = cache_buttons(m)
+        buttons = None if ('no se encontraron' in txt.lower() or 'no se encontró' in txt.lower()) else cache_buttons(m)
         text = replace_ads(m.text)
         search_msg_id = m.id
         
@@ -172,7 +172,7 @@ async def on_edit(event):
         return
     
     # Cachear botones
-    buttons = cache_buttons(m)
+    buttons = None if ('no se encontraron' in txt.lower() or 'no se encontró' in txt.lower()) else cache_buttons(m)
     text = replace_ads(m.text)
     
     # EDITAR el mensaje correcto usando search_msg_id
