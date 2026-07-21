@@ -1,0 +1,36 @@
+Server closed the connection: [Errno 103] Software caused connection abort
+Attempt 1 at connecting failed: OSError: [Errno 101] Network is unreachable
+Attempt 2 at connecting failed: OSError: [Errno 101] Network is unreachable
+Attempt 3 at connecting failed: OSError: [Errno 101] Network is unreachable
+Attempt 4 at connecting failed: OSError: [Errno 101] Network is unreachable
+[153s] 1000 títulos guardados
+[210s] 2000 títulos guardados
+[223s] 3000 títulos guardados
+[278s] 4000 títulos guardados
+[316s] 5000 títulos guardados
+[329s] 6000 títulos guardados
+[350s] 7000 títulos guardados
+[363s] 8000 títulos guardados
+[372s] 9000 títulos guardados
+[394s] 10000 títulos guardados
+[407s] 11000 títulos guardados
+[416s] 12000 títulos guardados
+[428s] 13000 títulos guardados
+[438s] 14000 títulos guardados
+[448s] 15000 títulos guardados
+[458s] 16000 títulos guardados
+[469s] 17000 títulos guardados
+[486s] 18000 títulos guardados
+[496s] 19000 títulos guardados
+[506s] 20000 títulos guardados
+[516s] 21000 títulos guardados
+[526s] 22000 títulos guardados
+[536s] 23000 títulos guardados
+[547s] 24000 títulos guardados
+[558s] 25000 títulos guardados
+[568s] 26000 títulos guardados
+[579s] 27000 títulos guardados
+[589s] 28000 títulos guardados
+[600s] 29000 títulos guardados
+[610s] 30000 títulos guardados
+✅ COMPLETADO: 30983 títulos en 621s
