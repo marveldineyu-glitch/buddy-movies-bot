@@ -95,10 +95,12 @@ async def on_bot3(event):
     
     if m.text:
         low = m.text.lower()
+        print(f"📝 Texto: {m.text[:80]}")  # DEBUG
         if any(x in low for x in ["maldito", "comparte", "terabox", "revisa el anuncio", "no te lo guardes", "procesando", "espera un momento"]):
             return
     
     if m.media:
+        print(f"📁 Media recibida: {m.text[:50] if m.text else 'Sin texto'}")  # DEBUG
         raw = replace_ads(m.text or "")
         sent = await user.send_file(CANAL, m.media, caption=raw)
         link = f"https://t.me/{CANAL[1:]}/{sent.id}"
