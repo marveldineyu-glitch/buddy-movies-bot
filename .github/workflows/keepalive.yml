@@ -10,4 +10,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping Render
-        run: curl -s -o /dev/null -w "%{http_code}" https://buddy-bridge-7ioy.onrender.com && echo ""
+        run: curl -s -o /dev/null -w "%{http_code}" https://bridge-simple-test.onrender.com && echo ""
