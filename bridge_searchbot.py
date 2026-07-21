@@ -76,10 +76,19 @@ def cache_buttons(msg):
 def replace_ads(text):
     if not text: return text
     text = text.replace("@TlgramMovieSearch_Bot", "@BuddyNotify_Bot")
+    text = text.replace("@TlgramMovieGroup_Bot", "@BuddyMovies_Bot")
+    text = text.replace("@MotorBusquedaBot", "@BuddyNotify_Bot")
     text = text.replace("Estrenos 2026", "@BuddyMovies_official")
+    text = text.replace("@FILM_PARADIZE", "@BuddyMovies_official")
     text = text.replace("@RZXBOTZ", "@BuddyMovies_Bot")
+    # Quitar enlaces terabox
+    text = re.sub(r'https?://[^\s]*terabox[^\s]*', '', text)
+    # Reemplazar enlace de publicidad por @BuddyMovies_official
+    text = text.replace('https://1024terabox.com/s/1lYx-v4HO1gmW6-J2qZFEgw', '@BuddyMovies_official')
+    # Quitar @BuddyNotify_Bot del final
+    text = re.sub(r'\n@BuddyNotify_Bot\s*$', '', text)
+    text = re.sub(r'@BuddyNotify_Bot\s*$', '', text)
     return text
-
 # ============ RESULTADOS ============
 @user.on(events.NewMessage(chats=SEARCH_GROUP))
 async def on_result(event):
