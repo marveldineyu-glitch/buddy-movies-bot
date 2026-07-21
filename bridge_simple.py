@@ -114,6 +114,36 @@ async def on_result(event):
                 link_preview=False,
                 reply_to=reply_to
             )
+    
+    # También manejar resultados de texto (paginación)
+    elif m.text and m.buttons and len(m.text) > 20:
+        buttons = cache_buttons(m)
+        text = replace_ads(m.text)
+        search_msg_id = m.id
+        
+        # Ver si ya existe un mensaje para este search_msg_id
+        if search_msg_id in search_results:
+            chat_id, result_msg_id = search_results[search_msg_id]
+            try:
+                await bot.edit_message(chat_id, result_msg_id, text[:4000], buttons=buttons)
+                return
+            except:
+                pass
+        
+        # Enviar nuevo
+        for uid, session in list(user_sessions.items()):
+            try:
+                sent = await bot.send_message(
+                    session.get('chat_id', GRUPO),
+                    text[:4000],
+                    buttons=buttons,
+                    reply_to=session.get('reply_to')
+                )
+                if sent:
+                    search_results[search_msg_id] = (session.get('chat_id', GRUPO), sent.id)
+            except:
+                pass
+            break
 
 @user.on(events.MessageEdited(chats=SEARCH_GROUP))
 async def on_edit(event):
