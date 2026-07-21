@@ -126,18 +126,34 @@ async def on_edit(event):
     buttons = cache_buttons(m)
     text = replace_ads(m.text)
     
-    # Enviar al grupo - cada usuario ve sus propios botones
+    # EDITAR mensaje existente del usuario
     for uid, session in list(user_sessions.items()):
+        msg_id = session.get('result_msg_id')
+        if msg_id:
+            try:
+                await bot.edit_message(
+                    session.get('chat_id', GRUPO),
+                    msg_id,
+                    text[:4000],
+                    buttons=buttons
+                )
+                return
+            except:
+                pass
+        
+        # Si no hay mensaje previo, enviar nuevo
         try:
-            await bot.send_message(
+            sent = await bot.send_message(
                 session.get('chat_id', GRUPO),
                 text[:4000],
                 buttons=buttons,
                 reply_to=session.get('reply_to')
             )
+            if sent:
+                session['result_msg_id'] = sent.id
         except:
             pass
-        break  # Solo enviar al último usuario
+        break
 
 # ============ USUARIOS ============
 @bot.on(events.NewMessage)
@@ -189,8 +205,9 @@ async def on_user_msg(event):
     # Limpiar botones viejos de este usuario
     button_map.clear()
     
-    # Enviar búsqueda
-    await user.send_message(SEARCH_GROUP, f"/search {q}")
+    # Enviar búsqueda y guardar referencia
+    sent = await user.send_message(SEARCH_GROUP, f"/search {q}")
+    user_sessions[user_id]['search_msg_id'] = sent.id
 
 # ============ CALLBACKS INSTANTÁNEOS ============
 @bot.on(events.CallbackQuery)
