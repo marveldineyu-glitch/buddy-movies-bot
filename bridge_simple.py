@@ -206,27 +206,11 @@ async def on_click(event):
     if not data:
         return
     
-    clicked_msg_id = event.message_id
-    
-    for (search_msg_id, our_id), chat_id in list(mirror.items()):
-        if our_id == clicked_msg_id:
-            try:
-                msgs = await user.get_messages(SEARCH_GROUP, ids=[search_msg_id])
-                if msgs and msgs[0].buttons:
-                    for row in msgs[0].buttons:
-                        for btn in row:
-                            btn_data = btn.data.decode() if isinstance(btn.data, bytes) else btn.data
-                            if btn_data == data:
-                                await event.answer("⚡")
-                                await btn.click()
-                                return
-            except:
-                pass
-    
+    # Buscar en TODOS los mensajes recientes del grupo de búsqueda
     try:
-        msgs = await user.get_messages(SEARCH_GROUP, limit=30)
+        msgs = await user.get_messages(SEARCH_GROUP, limit=50)
         for m in msgs:
-            if m.sender and m.sender.bot and m.buttons:
+            if m.buttons:
                 for row in m.buttons:
                     for btn in row:
                         btn_data = btn.data.decode() if isinstance(btn.data, bytes) else btn.data
@@ -234,8 +218,8 @@ async def on_click(event):
                             await event.answer("⚡")
                             await btn.click()
                             return
-    except:
-        pass
+    except Exception as e:
+        print(f"Click error: {e}")
     
     await event.answer("⏳ Expiró")
 
