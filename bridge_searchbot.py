@@ -192,21 +192,23 @@ async def on_click(event):
     if not data:
         return
     
+    # Buscar en mensajes recientes del chat del bot
     try:
-        msgs = await user.get_messages(SEARCH_BOT, limit=30)
+        msgs = await user.get_messages(SEARCH_BOT, limit=50)
         for m in msgs:
-            if m.sender and m.sender.bot and m.buttons:
+            if m.buttons:
                 for row in m.buttons:
                     for btn in row:
                         btn_data = btn.data.decode() if isinstance(btn.data, bytes) else btn.data
                         if btn_data == data:
-                            await event.answer("⚡ Cargando...")
+                            await event.answer("⚡")
                             await btn.click()
                             return
-    except:
-        pass
+        print(f"⚠️ Botón no encontrado: {data[:30]}")
+    except Exception as e:
+        print(f"❌ Error click: {e}")
     
-    await event.answer("⏳ Búsqueda expirada.", show_alert=True)
+    await event.answer("⏳ Búsqueda expirada.")
 
 # ============ ARRANQUE ============
 async def heartbeat():
