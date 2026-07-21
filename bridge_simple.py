@@ -204,6 +204,15 @@ async def on_msg(event):
     except:
         name = "Usuario"
     
+    # Limpiar búsquedas anteriores del mismo usuario
+        for req_id, session in list(user_sessions.items()):
+            if session.get('user_id') == user_id:
+                # Eliminar mirror de esa búsqueda
+                old_sid = session.get('search_msg_id')
+                if old_sid:
+                    mirror.pop((old_sid, session.get('result_msg_id')), None)
+                user_sessions.pop(req_id, None)
+    
     try:
         sent = await user.send_message(SEARCH_GROUP, f"/search {q}")
         user_sessions[sent.id] = {
