@@ -1,5 +1,5 @@
 import asyncio, re, os, threading, gc, time, urllib.request
-from collections import deque, OrderedDict
+from collections import OrderedDict
 from telethon import TelegramClient, events, Button
 from telethon.sessions import StringSession
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -13,44 +13,25 @@ CANAL = "@prueba22299"
 GRUPO = "@mabu205"
 
 os.environ['PYTHONOPTIMIZE'] = '2'
-gc.set_threshold(5000, 50, 50)
 
-search_queue = deque(maxlen=200)
-user_sessions = OrderedDict()
-our_msgs = {}
-rate_limit = {}
+active = {}
+our_msg = {}
+mirror3 = {}
 
-bot = TelegramClient('search_bridge', API_ID, API_HASH, 
+bot = TelegramClient('search_bridge', API_ID, API_HASH,
                      retry_delay=3, auto_reconnect=True, timeout=20)
 user = TelegramClient(StringSession(SESSION), API_ID, API_HASH,
                       retry_delay=3, auto_reconnect=True, timeout=20)
 
-def clean_memory():
-    now = time.time()
-    expired = [k for k, v in user_sessions.items() if now - v.get('timestamp', 0) > 300]
-    for k in expired:
-        user_sessions.pop(k, None)
-    if len(our_msgs) > 50:
-        oldest = list(our_msgs.keys())[:25]
-        for k in oldest:
-            our_msgs.pop(k, None)
-    gc.collect()
-
-def check_rate_limit(user_id):
-    now = time.time()
-    if user_id in rate_limit:
-        recent = [t for t in rate_limit[user_id] if now - t < 60]
-        rate_limit[user_id] = recent
-        if len(recent) >= 10:
-            return False
-    else:
-        rate_limit[user_id] = []
-    rate_limit[user_id].append(now)
-    return True
+def get_user():
+    if not active: return None, None, "Usuario"
+    valid = [k for k in active if k is not None]
+    if not valid: return None, None, "Usuario"
+    uid = valid[-1]
+    return uid, active[uid]['chat'], active[uid]['name']
 
 def make_buttons(msg):
-    if not msg or not msg.buttons:
-        return None
+    if not msg or not msg.buttons: return None
     btns = []
     for row in msg.buttons:
         r = []
@@ -60,85 +41,59 @@ def make_buttons(msg):
                 r.append(Button.inline(btn.text[:50], data[:64]))
             elif btn.url:
                 r.append(Button.url(btn.text[:50], btn.url))
-        if r:
-            btns.append(r)
+        if r: btns.append(r)
     return btns if btns else None
 
 def replace_ads(text):
-    if not text:
-        return text
-    text = re.sub(r'@\w+MovieGroup\w*', '@mabu205', text)
-    text = re.sub(r'@\w+MovieSearch\w*', '@MotorBusquedaBot', text)
+    if not text: return text
+    text = text.replace("@TlgramMovieSearch_Bot", "@MotorBusquedaBot")
+    text = text.replace("@TlgramMovieGroup_Bot", "@BuddyMovies_Bot")
     return text
 
-# ============ RECIBIR RESPUESTAS DEL BOT ============
+# ============ BOT 3: @TlgramMovieSearch_Bot (LÓGICA PROBADA) ============
 @user.on(events.NewMessage(chats=SEARCH_BOT))
-async def on_search_response(event):
-    clean_memory()
+async def on_bot3(event):
     m = event.message
+    uid, chat_id, name = get_user()
+    if not uid: return
     
-    if not m.sender or not m.sender.bot:
-        return
-    
-    if not search_queue:
-        return
-    
-    # Peek sin hacer pop
-    request_id = search_queue[0]
-    session = user_sessions.get(request_id, {})
-    if not session:
-        return
-    
-    user_id = session.get('user_id')
-    name = session.get('name', 'Usuario')
-    reply_to = session.get('reply_to')
-    
-    # ¿Es un mensaje FINAL? (tiene media o botones de acción)
-    es_final = bool(m.media) or (m.buttons and len(m.buttons) > 0 and not any(
-        'método' in (btn.text or '').lower() for row in m.buttons for btn in row
-    ))
-    
-    if es_final:
-        # Hacer pop solo cuando es el mensaje final
-        search_queue.popleft()
-        user_sessions.pop(request_id, None)
-    
-    # Enviar SIEMPRE el mensaje al grupo (incluso los intermedios)
     if m.media:
         raw = replace_ads(m.text or "")
         sent = await user.send_file(CANAL, m.media, caption=raw)
         link = f"https://t.me/{CANAL[1:]}/{sent.id}"
-        title = (m.text or "Archivo").split('\n')[0][:80]
-        await bot.send_message(
-            GRUPO,
-            f"🎬 **{name}**\n📁 {title}\n\n🔗 {link}",
-            buttons=[[Button.url("🎥 VER CONTENIDO", link)]],
-            link_preview=False,
-            reply_to=reply_to
-        )
-    elif m.text:
-        txt = replace_ads(m.text)
-        buttons = make_buttons(m)
-        
-        # SIEMPRE editar si ya existe un mensaje, o crear nuevo
-        if user_id in our_msgs:
-            try:
-                await bot.edit_message(GRUPO, our_msgs[user_id], txt[:4000], buttons=buttons)
-                return
-            except:
-                # Si falla la edición, eliminar referencia y crear nuevo
-                our_msgs.pop(user_id, None)
-        
-        # Solo crear mensaje nuevo si no existe uno previo
-        sent = await bot.send_message(GRUPO, txt[:4000], buttons=buttons, reply_to=reply_to)
-        if sent:
-            our_msgs[user_id] = sent.id
-
-# ============ RECIBIR BÚSQUEDAS ============
-@bot.on(events.NewMessage)
-async def on_user_msg(event):
-    clean_memory()
+        title = (m.text or "Archivo").split('\n')[0]
+        await bot.send_message(GRUPO, f"🎬 **Aquí tienes {name}**\n\n📁 **{title}**", buttons=[[Button.url("🎥 VER CONTENIDO", link)]], link_preview=False)
+        return
     
+    if not m.text: return
+    if any(x in m.text.lower() for x in ["maldito", "comparte", "terabox", "revisa el anuncio", "no te lo guardes"]): return
+    
+    txt = replace_ads(m.text)
+    if uid in our_msg:
+        try:
+            await bot.edit_message(chat_id, our_msg[uid], txt[:4000], buttons=make_buttons(m))
+            mirror3[m.id] = our_msg[uid]
+            return
+        except:
+            pass
+    
+    sent = await bot.send_message(chat_id, txt[:4000], buttons=make_buttons(m))
+    our_msg[uid] = sent.id
+    mirror3[m.id] = sent.id
+
+@user.on(events.MessageEdited(chats=SEARCH_BOT))
+async def on_bot3_edit(event):
+    m = event.message
+    if m.id in mirror3:
+        uid, chat_id, name = get_user()
+        if uid:
+            try:
+                await bot.edit_message(chat_id, mirror3[m.id], replace_ads(m.text)[:4000], buttons=make_buttons(m))
+            except: pass
+
+# ============ USUARIOS ============
+@bot.on(events.NewMessage)
+async def on_user(event):
     if event.is_private:
         await event.reply(
             "🎬 <b>¡Motor de Búsqueda!</b>\n\n"
@@ -150,65 +105,47 @@ async def on_user_msg(event):
         )
         return
     
-    if event.out or not event.text:
-        return
+    if event.out: return
+    q = event.text.strip() if event.text else ""
+    if len(q) < 2 or q.startswith("/"): return
     
-    q = event.text.strip()
-    if len(q) < 2 or q.startswith("/"):
-        return
-    
-    user_id = event.sender_id
-    
-    if not check_rate_limit(user_id):
-        try:
-            await event.reply("⏳ Espera un momento...")
-        except:
-            pass
-        return
-    
+    uid = event.sender_id or event.chat_id
     try:
-        sender = await bot.get_entity(user_id)
+        sender = await bot.get_entity(uid)
         name = sender.first_name or "Usuario"
     except:
         name = "Usuario"
     
-    try:
-        our_msgs.pop(user_id, None)
-        sent = await user.send_message(SEARCH_BOT, q)
-        user_sessions[sent.id] = {
-            'user_id': user_id,
-            'name': name,
-            'reply_to': event.message.id,
-            'timestamp': time.time()
-        }
-        search_queue.append(sent.id)
-    except Exception as e:
-        print(f"❌ Error: {e}")
+    active[uid] = {'chat': event.chat_id, 'name': name}
+    mirror3.clear()
+    our_msg.pop(uid, None)
+    await user.send_message(SEARCH_BOT, q)
 
-# ============ CALLBACKS ============
 @bot.on(events.CallbackQuery)
 async def on_click(event):
     data = event.data.decode() if isinstance(event.data, bytes) else event.data
-    if not data:
-        return
+    if not data: return
     
-    # Buscar en mensajes recientes del chat del bot
+    uid = event.sender_id or event.chat_id
     try:
-        msgs = await user.get_messages(SEARCH_BOT, limit=50)
-        for m in msgs:
-            if m.buttons:
-                for row in m.buttons:
-                    for btn in row:
-                        btn_data = btn.data.decode() if isinstance(btn.data, bytes) else btn.data
-                        if btn_data == data:
-                            await event.answer("⚡")
-                            await btn.click()
-                            return
-        print(f"⚠️ Botón no encontrado: {data[:30]}")
-    except Exception as e:
-        print(f"❌ Error click: {e}")
+        sender = await bot.get_entity(uid)
+        name = sender.first_name or "Usuario"
+    except:
+        name = "Usuario"
+    active[uid] = {'chat': event.chat_id, 'name': name}
     
-    await event.answer("⏳ Búsqueda expirada.")
+    # Buscar en el chat del bot
+    msgs = await user.get_messages(SEARCH_BOT, limit=20)
+    for m in msgs:
+        if m.buttons:
+            for row in m.buttons:
+                for btn in row:
+                    btn_data = btn.data.decode() if isinstance(btn.data, bytes) else btn.data
+                    if btn_data == data:
+                        await event.answer("⚡")
+                        await btn.click()
+                        return
+    await event.answer("⏳ Expiró")
 
 # ============ ARRANQUE ============
 async def heartbeat():
@@ -217,14 +154,13 @@ async def heartbeat():
         try:
             await bot.get_me()
             await user.get_me()
-            clean_memory()
         except:
             pass
 
 async def main():
     await user.start()
     await bot.start(bot_token=BOT_TOKEN)
-    print(f"✅ Bridge listo → {GRUPO}")
+    print(f"✅ Bridge @TlgramMovieSearch_Bot → {GRUPO}")
     asyncio.create_task(heartbeat())
     await asyncio.gather(bot.run_until_disconnected(), user.run_until_disconnected())
 
