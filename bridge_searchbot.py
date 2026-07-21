@@ -13,15 +13,45 @@ CANAL = "@prueba22299"
 GRUPO = "@mabu205"
 
 os.environ['PYTHONOPTIMIZE'] = '2'
+gc.set_threshold(5000, 50, 50)
 
-active = {}
+active = OrderedDict()
 our_msg = {}
 mirror3 = {}
+rate_limit = {}
 
 bot = TelegramClient('search_bridge', API_ID, API_HASH,
                      retry_delay=3, auto_reconnect=True, timeout=20)
 user = TelegramClient(StringSession(SESSION), API_ID, API_HASH,
                       retry_delay=3, auto_reconnect=True, timeout=20)
+
+def clean_memory():
+    now = time.time()
+    expired = [k for k, v in active.items() if now - v.get('timestamp', 0) > 300]
+    for k in expired:
+        active.pop(k, None)
+        our_msg.pop(k, None)
+    if len(mirror3) > 100:
+        oldest = list(mirror3.keys())[:50]
+        for k in oldest:
+            mirror3.pop(k, None)
+    if len(our_msg) > 50:
+        oldest = list(our_msg.keys())[:25]
+        for k in oldest:
+            our_msg.pop(k, None)
+    gc.collect()
+
+def check_rate_limit(user_id):
+    now = time.time()
+    if user_id in rate_limit:
+        recent = [t for t in rate_limit[user_id] if now - t < 60]
+        rate_limit[user_id] = recent
+        if len(recent) >= 10:
+            return False
+    else:
+        rate_limit[user_id] = []
+    rate_limit[user_id].append(now)
+    return True
 
 def get_user():
     if not active: return None, None, "Usuario"
@@ -46,27 +76,42 @@ def make_buttons(msg):
 
 def replace_ads(text):
     if not text: return text
-    text = text.replace("@TlgramMovieSearch_Bot", "@MotorBusquedaBot")
+    text = text.replace("@TlgramMovieSearch_Bot", "@BuddyMovies_Bot")
     text = text.replace("@TlgramMovieGroup_Bot", "@BuddyMovies_Bot")
+    text = text.replace("@MotorBusquedaBot", "@BuddyMovies_Bot")
+    text = text.replace("Estrenos 2026", "@BuddyMovies_official")
+    text = text.replace("@FILM_PARADIZE", "@BuddyMovies_official")
+    text = text.replace("@RZXBOTZ", "@BuddyMovies_Bot")
+    text = re.sub(r"https?://[^\s]*terabox[^\s]*", "", text)
     return text
 
-# ============ BOT 3: @TlgramMovieSearch_Bot (LÓGICA PROBADA) ============
+# ============ BOT 3: @TlgramMovieSearch_Bot ============
 @user.on(events.NewMessage(chats=SEARCH_BOT))
 async def on_bot3(event):
+    clean_memory()
     m = event.message
     uid, chat_id, name = get_user()
     if not uid: return
+    
+    if m.text:
+        low = m.text.lower()
+        if any(x in low for x in ["maldito", "comparte", "terabox", "revisa el anuncio", "no te lo guardes", "procesando", "espera un momento"]):
+            return
     
     if m.media:
         raw = replace_ads(m.text or "")
         sent = await user.send_file(CANAL, m.media, caption=raw)
         link = f"https://t.me/{CANAL[1:]}/{sent.id}"
-        title = (m.text or "Archivo").split('\n')[0]
-        await bot.send_message(GRUPO, f"🎬 **Aquí tienes {name}**\n\n📁 **{title}**", buttons=[[Button.url("🎥 VER CONTENIDO", link)]], link_preview=False)
+        title = (m.text or "Archivo").split('\n')[0][:80]
+        await bot.send_message(
+            chat_id,
+            f"🎬 **Aquí tienes {name}**\n\n📁 **{title}**\n\n🔗 {link}",
+            buttons=[[Button.url("🎥 VER CONTENIDO", link)]],
+            link_preview=False
+        )
         return
     
     if not m.text: return
-    if any(x in m.text.lower() for x in ["maldito", "comparte", "terabox", "revisa el anuncio", "no te lo guardes", "procesando", "espera un momento"]): return
     
     txt = replace_ads(m.text)
     if uid in our_msg:
@@ -83,6 +128,7 @@ async def on_bot3(event):
 
 @user.on(events.MessageEdited(chats=SEARCH_BOT))
 async def on_bot3_edit(event):
+    clean_memory()
     m = event.message
     if not m.text: return
     if any(x in m.text.lower() for x in ["procesando", "espera un momento"]): return
@@ -96,13 +142,15 @@ async def on_bot3_edit(event):
 # ============ USUARIOS ============
 @bot.on(events.NewMessage)
 async def on_user(event):
+    clean_memory()
+    
     if event.is_private:
         await event.reply(
-            "🎬 <b>¡Motor de Búsqueda!</b>\n\n"
+            "🎬 <b>¡BuddyPelis!</b>\n\n"
             "📽️ <b>Películas y series</b>\n"
             "🔍 Busca sin límites en el grupo\n\n"
-            "👉 <b>Únete:</b> @mabu205",
-            buttons=[[Button.url("🎥 IR AL GRUPO", "https://t.me/mabu205")]],
+            "👉 <b>Únete:</b> @BuddyMovies_official",
+            buttons=[[Button.url("🎥 IR AL GRUPO", "https://t.me/BuddyMovies_official")]],
             link_preview=False
         )
         return
@@ -112,13 +160,21 @@ async def on_user(event):
     if len(q) < 2 or q.startswith("/"): return
     
     uid = event.sender_id or event.chat_id
+    
+    if not check_rate_limit(uid):
+        try:
+            await event.reply("⏳ Espera un momento...")
+        except:
+            pass
+        return
+    
     try:
         sender = await bot.get_entity(uid)
         name = sender.first_name or "Usuario"
     except:
         name = "Usuario"
     
-    active[uid] = {'chat': event.chat_id, 'name': name}
+    active[uid] = {'chat': event.chat_id, 'name': name, 'timestamp': time.time()}
     mirror3.clear()
     our_msg.pop(uid, None)
     await user.send_message(SEARCH_BOT, q)
@@ -134,10 +190,9 @@ async def on_click(event):
         name = sender.first_name or "Usuario"
     except:
         name = "Usuario"
-    active[uid] = {'chat': event.chat_id, 'name': name}
+    active[uid] = {'chat': event.chat_id, 'name': name, 'timestamp': time.time()}
     
-    # Buscar en el chat del bot
-    msgs = await user.get_messages(SEARCH_BOT, limit=20)
+    msgs = await user.get_messages(SEARCH_BOT, limit=30)
     for m in msgs:
         if m.buttons:
             for row in m.buttons:
@@ -156,6 +211,7 @@ async def heartbeat():
         try:
             await bot.get_me()
             await user.get_me()
+            clean_memory()
         except:
             pass
 
