@@ -66,7 +66,7 @@ async def on_bot3(event):
         return
     
     if not m.text: return
-    if any(x in m.text.lower() for x in ["maldito", "comparte", "terabox", "revisa el anuncio", "no te lo guardes"]): return
+    if any(x in m.text.lower() for x in ["maldito", "comparte", "terabox", "revisa el anuncio", "no te lo guardes", "procesando", "espera un momento"]): return
     
     txt = replace_ads(m.text)
     if uid in our_msg:
@@ -84,6 +84,8 @@ async def on_bot3(event):
 @user.on(events.MessageEdited(chats=SEARCH_BOT))
 async def on_bot3_edit(event):
     m = event.message
+    if not m.text: return
+    if any(x in m.text.lower() for x in ["procesando", "espera un momento"]): return
     if m.id in mirror3:
         uid, chat_id, name = get_user()
         if uid:
