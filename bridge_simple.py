@@ -18,6 +18,7 @@ gc.set_threshold(5000, 50, 50)
 
 # ============ ESTADO OPTIMIZADO ============
 user_sessions = OrderedDict()  # {user_id: {name, reply_to, timestamp}}
+search_results = {}  # {search_msg_id: (chat_id, result_msg_id)} - para editar el correcto
 button_map = {}  # {callback_data: (search_msg_id, row_idx, btn_idx)} - RESPUESTA INSTANTÁNEA
 rate_limit = {}
 
@@ -31,6 +32,10 @@ def clean_memory():
     expired = [k for k, v in user_sessions.items() if now - v.get('timestamp', 0) > 300]
     for k in expired:
         user_sessions.pop(k, None)
+    if len(search_results) > 100:
+        oldest = list(search_results.keys())[:50]
+        for k in oldest:
+            search_results.pop(k, None)
     if len(button_map) > 1000:
         oldest = list(button_map.keys())[:500]
         for k in oldest:
@@ -126,22 +131,18 @@ async def on_edit(event):
     buttons = cache_buttons(m)
     text = replace_ads(m.text)
     
-    # EDITAR mensaje existente del usuario
+    # EDITAR el mensaje correcto usando search_msg_id
+    search_msg_id = m.id
+    if search_msg_id in search_results:
+        chat_id, result_msg_id = search_results[search_msg_id]
+        try:
+            await bot.edit_message(chat_id, result_msg_id, text[:4000], buttons=buttons)
+            return
+        except:
+            pass
+    
+    # Si no existe, enviar nuevo al último usuario
     for uid, session in list(user_sessions.items()):
-        msg_id = session.get('result_msg_id')
-        if msg_id:
-            try:
-                await bot.edit_message(
-                    session.get('chat_id', GRUPO),
-                    msg_id,
-                    text[:4000],
-                    buttons=buttons
-                )
-                return
-            except:
-                pass
-        
-        # Si no hay mensaje previo, enviar nuevo
         try:
             sent = await bot.send_message(
                 session.get('chat_id', GRUPO),
@@ -150,7 +151,7 @@ async def on_edit(event):
                 reply_to=session.get('reply_to')
             )
             if sent:
-                session['result_msg_id'] = sent.id
+                search_results[search_msg_id] = (session.get('chat_id', GRUPO), sent.id)
         except:
             pass
         break
