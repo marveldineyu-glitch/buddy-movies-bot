@@ -120,13 +120,16 @@ async def on_search_response(event):
         txt = replace_ads(m.text)
         buttons = make_buttons(m)
         
+        # SIEMPRE editar si ya existe un mensaje, o crear nuevo
         if user_id in our_msgs:
             try:
                 await bot.edit_message(GRUPO, our_msgs[user_id], txt[:4000], buttons=buttons)
                 return
             except:
-                pass
+                # Si falla la edición, eliminar referencia y crear nuevo
+                our_msgs.pop(user_id, None)
         
+        # Solo crear mensaje nuevo si no existe uno previo
         sent = await bot.send_message(GRUPO, txt[:4000], buttons=buttons, reply_to=reply_to)
         if sent:
             our_msgs[user_id] = sent.id
