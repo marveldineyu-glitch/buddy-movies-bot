@@ -4,7 +4,6 @@ from telethon import TelegramClient, events, Button
 from telethon.sessions import StringSession
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-# ============ CONFIG ============
 API_ID = 28074212
 API_HASH = "b18dae908474a377684922f3e9d5b795"
 BOT_TOKEN = "8463069047:AAGeZg0IQd-1-Mv3ubxqnwZY1oJgxio9hr8"
@@ -72,7 +71,7 @@ def replace_ads(text):
     text = re.sub(r'@\w+MovieSearch\w*', '@MotorBusquedaBot', text)
     return text
 
-# ============ RECIBIR RESPUESTAS DEL BOT DE BÚSQUEDA ============
+# ============ RECIBIR RESPUESTAS DEL BOT ============
 @user.on(events.NewMessage(chats=SEARCH_BOT))
 async def on_search_response(event):
     clean_memory()
@@ -81,77 +80,58 @@ async def on_search_response(event):
     if not m.sender or not m.sender.bot:
         return
     
-    if m.text:
-        low = m.text.lower()
-        if any(x in low for x in ["maldito", "comparte", "terabox", "revisa el anuncio", "no te lo guardes", "searching"]):
-            return
-    
-    if search_queue:
-        request_id = search_queue.popleft()
-        session = user_sessions.pop(request_id, {})
-        if not session:
-            return
-        
-        user_id = session.get('user_id')
-        name = session.get('name', 'Usuario')
-        reply_to = session.get('reply_to')
-        
-        if m.media:
-            raw = replace_ads(m.text or "")
-            sent = await user.send_file(CANAL, m.media, caption=raw)
-            link = f"https://t.me/{CANAL[1:]}/{sent.id}"
-            title = (m.text or "Archivo").split('\n')[0][:80]
-            
-            await bot.send_message(
-                GRUPO,
-                f"🎬 **{name}**\n📁 {title}\n\n🔗 {link}",
-                buttons=[[Button.url("🎥 VER CONTENIDO", link)]],
-                link_preview=False,
-                reply_to=reply_to
-            )
-            return
-        
-        if m.text and len(m.text) > 10:
-            txt = replace_ads(m.text)
-            
-            if user_id in our_msgs:
-                try:
-                    await bot.edit_message(GRUPO, our_msgs[user_id], txt[:4000], buttons=make_buttons(m))
-                    return
-                except:
-                    pass
-            
-            sent = await bot.send_message(GRUPO, txt[:4000], buttons=make_buttons(m), reply_to=reply_to)
-            if sent:
-                our_msgs[user_id] = sent.id
-
-@user.on(events.MessageEdited(chats=SEARCH_BOT))
-async def on_search_edit(event):
-    clean_memory()
-    m = event.message
-    
-    if not m.sender or not m.sender.bot:
+    if not search_queue:
         return
     
-    if not m.text:
+    # Peek sin hacer pop
+    request_id = search_queue[0]
+    session = user_sessions.get(request_id, {})
+    if not session:
         return
     
-    low = m.text.lower()
-    if any(x in low for x in ["maldito", "comparte", "terabox"]):
-        return
+    user_id = session.get('user_id')
+    name = session.get('name', 'Usuario')
+    reply_to = session.get('reply_to')
     
-    txt = replace_ads(m.text)
+    # ¿Es un mensaje FINAL? (tiene media o botones de acción)
+    es_final = bool(m.media) or (m.buttons and len(m.buttons) > 0 and not any(
+        'método' in (btn.text or '').lower() for row in m.buttons for btn in row
+    ))
     
-    for req_id, session in list(user_sessions.items()):
-        user_id = session.get('user_id')
-        if user_id and user_id in our_msgs:
+    if es_final:
+        # Hacer pop solo cuando es el mensaje final
+        search_queue.popleft()
+        user_sessions.pop(request_id, None)
+    
+    # Enviar SIEMPRE el mensaje al grupo (incluso los intermedios)
+    if m.media:
+        raw = replace_ads(m.text or "")
+        sent = await user.send_file(CANAL, m.media, caption=raw)
+        link = f"https://t.me/{CANAL[1:]}/{sent.id}"
+        title = (m.text or "Archivo").split('\n')[0][:80]
+        await bot.send_message(
+            GRUPO,
+            f"🎬 **{name}**\n📁 {title}\n\n🔗 {link}",
+            buttons=[[Button.url("🎥 VER CONTENIDO", link)]],
+            link_preview=False,
+            reply_to=reply_to
+        )
+    elif m.text:
+        txt = replace_ads(m.text)
+        buttons = make_buttons(m)
+        
+        if user_id in our_msgs:
             try:
-                await bot.edit_message(GRUPO, our_msgs[user_id], txt[:4000], buttons=make_buttons(m))
+                await bot.edit_message(GRUPO, our_msgs[user_id], txt[:4000], buttons=buttons)
                 return
             except:
                 pass
+        
+        sent = await bot.send_message(GRUPO, txt[:4000], buttons=buttons, reply_to=reply_to)
+        if sent:
+            our_msgs[user_id] = sent.id
 
-# ============ RECIBIR BÚSQUEDAS DE USUARIOS ============
+# ============ RECIBIR BÚSQUEDAS ============
 @bot.on(events.NewMessage)
 async def on_user_msg(event):
     clean_memory()
@@ -199,7 +179,6 @@ async def on_user_msg(event):
             'timestamp': time.time()
         }
         search_queue.append(sent.id)
-        print(f"🔍 {name}: {q}")
     except Exception as e:
         print(f"❌ Error: {e}")
 
@@ -224,7 +203,7 @@ async def on_click(event):
     except:
         pass
     
-    await event.answer("⏳ Búsqueda expirada. Busca de nuevo.", show_alert=True)
+    await event.answer("⏳ Búsqueda expirada.", show_alert=True)
 
 # ============ ARRANQUE ============
 async def heartbeat():
@@ -241,8 +220,6 @@ async def main():
     await user.start()
     await bot.start(bot_token=BOT_TOKEN)
     print(f"✅ Bridge listo → {GRUPO}")
-    print(f"🔍 Motor: {SEARCH_BOT}")
-    print(f"📦 Canal: {CANAL}")
     asyncio.create_task(heartbeat())
     await asyncio.gather(bot.run_until_disconnected(), user.run_until_disconnected())
 
