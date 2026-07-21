@@ -11,8 +11,8 @@ BOT_TOKEN = "8984212389:AAFZMh_ZQZm8DlIqPLvQEljnC1UPVtRJV-Q"
 SESSION = "1AZWarzYBu72KHN1Z6-0Q0I9KI7JSZ_3dpMTSuiN6aNsb_STMDHX10-fo09zyXAOhbRSHE0gJJlFU3iRYuqPMAu_U_ka8RuHU98KFxMVTOGWZrilLGBsZSUirNT1C4-8Q4Po3XX_kWI_6GSCEc_pRBgCktyuzZL4rSXwKlCSpx1-NmSqQ-Vb62e47hKUznQugDB31Sl71tM7-3MLMp3EmqbIA_m5f6zA2gZYX4swtE0aCw1Su8neeah5rGTQI7imOISQZRNgStTrmcmBtmUVVPmzqM6-b512Np3cLBv5vIMBchTwqB77ipLEj-xHhdB8hdIPPJtvo9aqQBtZv_faUy-PrhAeiNmo="
 SEARCH_GROUP = "@pooppuuui"
 CANAL = "@BuddyMovies_canal"
-GRUPO = "@mabu205"
-GRUPO_ID = -1003327241039
+GRUPO = "@BuddyMovies_official"
+GRUPO_ID = 2311102965
 MI_GRUPO = "@BuddyMovies_official"
 
 # ============ REEMPLAZOS ============
@@ -175,7 +175,7 @@ async def on_msg(event):
             "📽️ <b>+5 millones de películas y series</b>\n"
             "🔍 Busca sin límites en el grupo\n\n"
             f"👉 <b>Únete:</b> {MI_GRUPO}",
-            buttons=[[Button.url("🎥 IR AL GRUPO", f"https://t.me/{MI_GRUPO[1:]}")]],
+            buttons=[[Button.url("🎥 IR AL GRUPO", "https://t.me/BuddyMovies_official")]],
             link_preview=False
         )
         return
