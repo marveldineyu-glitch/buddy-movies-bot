@@ -17,7 +17,8 @@ os.environ['PYTHONOPTIMIZE'] = '2'
 gc.set_threshold(5000, 50, 50)
 
 # ============ ESTADO OPTIMIZADO ============
-user_sessions = OrderedDict()  # {user_id: {name, reply_to, timestamp}}
+user_sessions = OrderedDict()  # {search_msg_id: {user_id, name, reply_to}}
+search_results = {}  # {search_msg_id: (chat_id, result_msg_id)}  # {user_id: {name, reply_to, timestamp}}
 search_results = {}  # {search_msg_id: (chat_id, result_msg_id)} - para editar el correcto
 button_map = {}  # {callback_data: (search_msg_id, row_idx, btn_idx)} - RESPUESTA INSTANTÁNEA
 rate_limit = {}
@@ -245,9 +246,16 @@ async def on_user_msg(event):
     # Limpiar botones viejos de este usuario
     button_map.clear()
     
-    # Enviar búsqueda y guardar referencia
+    # Enviar búsqueda y guardar por search_msg_id (NO por usuario)
     sent = await user.send_message(SEARCH_GROUP, f"/search {q}")
-    user_sessions[user_id]['search_msg_id'] = sent.id
+    user_sessions[sent.id] = {
+        'user_id': user_id,
+        'name': name,
+        'chat_id': event.chat_id,
+        'reply_to': event.message.id,
+        'timestamp': time.time()
+    }
+    # NO limpiar button_map - mantener botones de todas las búsquedas
 
 # ============ CALLBACKS INSTANTÁNEOS ============
 @bot.on(events.CallbackQuery)
