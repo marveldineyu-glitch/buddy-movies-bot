@@ -4,6 +4,7 @@ from telethon import TelegramClient, events, Button
 from telethon.sessions import StringSession
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
+# ============ CONFIG ============
 API_ID = 28074212
 API_HASH = "b18dae908474a377684922f3e9d5b795"
 BOT_TOKEN = "8463069047:AAGeZg0IQd-1-Mv3ubxqnwZY1oJgxio9hr8"
@@ -18,12 +19,13 @@ gc.set_threshold(5000, 50, 50)
 active = OrderedDict()
 our_msg = {}
 mirror3 = {}
+button_map = {}
 rate_limit = {}
 
-bot = TelegramClient('search_bridge', API_ID, API_HASH,
-                     retry_delay=3, auto_reconnect=True, timeout=20)
+bot = TelegramClient('search_bridge2', API_ID, API_HASH,
+                     retry_delay=3, auto_reconnect=True, timeout=15)
 user = TelegramClient(StringSession(SESSION), API_ID, API_HASH,
-                      retry_delay=3, auto_reconnect=True, timeout=20)
+                      retry_delay=3, auto_reconnect=True, timeout=15)
 
 def clean_memory():
     now = time.time()
@@ -35,10 +37,10 @@ def clean_memory():
         oldest = list(mirror3.keys())[:50]
         for k in oldest:
             mirror3.pop(k, None)
-    if len(our_msg) > 50:
-        oldest = list(our_msg.keys())[:25]
+    if len(button_map) > 1000:
+        oldest = list(button_map.keys())[:500]
         for k in oldest:
-            our_msg.pop(k, None)
+            button_map.pop(k, None)
     gc.collect()
 
 def check_rate_limit(user_id):
@@ -46,28 +48,22 @@ def check_rate_limit(user_id):
     if user_id in rate_limit:
         recent = [t for t in rate_limit[user_id] if now - t < 60]
         rate_limit[user_id] = recent
-        if len(recent) >= 10:
+        if len(recent) >= 15:
             return False
     else:
         rate_limit[user_id] = []
     rate_limit[user_id].append(now)
     return True
 
-def get_user():
-    if not active: return None, None, "Usuario"
-    valid = [k for k in active if k is not None]
-    if not valid: return None, None, "Usuario"
-    uid = valid[-1]
-    return uid, active[uid]['chat'], active[uid]['name']
-
-def make_buttons(msg):
+def cache_buttons(msg):
     if not msg or not msg.buttons: return None
     btns = []
-    for row in msg.buttons:
+    for row_idx, row in enumerate(msg.buttons):
         r = []
-        for btn in row:
+        for btn_idx, btn in enumerate(row):
             if btn.data:
                 data = btn.data.decode() if isinstance(btn.data, bytes) else btn.data
+                button_map[data] = (msg.id, row_idx, btn_idx)
                 r.append(Button.inline(btn.text[:50], data[:64]))
             elif btn.url:
                 r.append(Button.url(btn.text[:50], btn.url))
@@ -76,14 +72,20 @@ def make_buttons(msg):
 
 def replace_ads(text):
     if not text: return text
-    text = text.replace("@TlgramMovieSearch_Bot", "@BuddyMovies_Bot")
+    text = text.replace("@TlgramMovieSearch_Bot", "@BuddyNotify_Bot")
     text = text.replace("@TlgramMovieGroup_Bot", "@BuddyMovies_Bot")
-    text = text.replace("@MotorBusquedaBot", "@BuddyMovies_Bot")
+    text = text.replace("@MotorBusquedaBot", "@BuddyNotify_Bot")
     text = text.replace("Estrenos 2026", "@BuddyMovies_official")
     text = text.replace("@FILM_PARADIZE", "@BuddyMovies_official")
     text = text.replace("@RZXBOTZ", "@BuddyMovies_Bot")
-    text = re.sub(r"https?://[^\s]*terabox[^\s]*", "", text)
     return text
+
+def get_user():
+    if not active: return None, None, "Usuario"
+    valid = [k for k in active if k is not None]
+    if not valid: return None, None, "Usuario"
+    uid = valid[-1]
+    return uid, active[uid]['chat'], active[uid]['name']
 
 # ============ BOT 3: @TlgramMovieSearch_Bot ============
 @user.on(events.NewMessage(chats=SEARCH_BOT))
@@ -95,12 +97,10 @@ async def on_bot3(event):
     
     if m.text:
         low = m.text.lower()
-        print(f"📝 Texto: {m.text[:80]}")  # DEBUG
         if any(x in low for x in ["maldito", "comparte", "terabox", "revisa el anuncio", "no te lo guardes", "procesando", "espera un momento"]):
             return
     
     if m.media:
-        print(f"📁 Media recibida: {m.text[:50] if m.text else 'Sin texto'}")  # DEBUG
         raw = replace_ads(m.text or "")
         sent = await user.send_file(CANAL, m.media, caption=raw)
         link = f"https://t.me/{CANAL[1:]}/{sent.id}"
@@ -116,15 +116,19 @@ async def on_bot3(event):
     if not m.text: return
     
     txt = replace_ads(m.text)
+    buttons = cache_buttons(m)
+    
+    # EDITAR mensaje existente
     if uid in our_msg:
         try:
-            await bot.edit_message(chat_id, our_msg[uid], txt[:4000], buttons=make_buttons(m))
+            await bot.edit_message(chat_id, our_msg[uid], txt[:4000], buttons=buttons)
             mirror3[m.id] = our_msg[uid]
             return
         except:
             pass
     
-    sent = await bot.send_message(chat_id, txt[:4000], buttons=make_buttons(m))
+    # Enviar nuevo
+    sent = await bot.send_message(chat_id, txt[:4000], buttons=buttons)
     our_msg[uid] = sent.id
     mirror3[m.id] = sent.id
 
@@ -138,7 +142,7 @@ async def on_bot3_edit(event):
         uid, chat_id, name = get_user()
         if uid:
             try:
-                await bot.edit_message(chat_id, mirror3[m.id], replace_ads(m.text)[:4000], buttons=make_buttons(m))
+                await bot.edit_message(chat_id, mirror3[m.id], replace_ads(m.text)[:4000], buttons=cache_buttons(m))
             except: pass
 
 # ============ USUARIOS ============
@@ -179,31 +183,41 @@ async def on_user(event):
     active[uid] = {'chat': event.chat_id, 'name': name, 'timestamp': time.time()}
     mirror3.clear()
     our_msg.pop(uid, None)
+    button_map.clear()
     await user.send_message(SEARCH_BOT, q)
 
+# ============ CALLBACKS INSTANTÁNEOS ============
 @bot.on(events.CallbackQuery)
 async def on_click(event):
     data = event.data.decode() if isinstance(event.data, bytes) else event.data
     if not data: return
     
-    uid = event.sender_id or event.chat_id
-    try:
-        sender = await bot.get_entity(uid)
-        name = sender.first_name or "Usuario"
-    except:
-        name = "Usuario"
-    active[uid] = {'chat': event.chat_id, 'name': name, 'timestamp': time.time()}
+    if data in button_map:
+        msg_id, row_idx, btn_idx = button_map[data]
+        try:
+            msgs = await user.get_messages(SEARCH_BOT, ids=[msg_id])
+            if msgs and msgs[0].buttons:
+                btn = msgs[0].buttons[row_idx][btn_idx]
+                await event.answer("⚡")
+                await btn.click()
+                return
+        except:
+            pass
     
-    msgs = await user.get_messages(SEARCH_BOT, limit=30)
-    for m in msgs:
-        if m.buttons:
-            for row in m.buttons:
-                for btn in row:
-                    btn_data = btn.data.decode() if isinstance(btn.data, bytes) else btn.data
-                    if btn_data == data:
-                        await event.answer("⚡")
-                        await btn.click()
-                        return
+    try:
+        msgs = await user.get_messages(SEARCH_BOT, limit=50)
+        for m in msgs:
+            if m.buttons:
+                for row in m.buttons:
+                    for btn in row:
+                        btn_data = btn.data.decode() if isinstance(btn.data, bytes) else btn.data
+                        if btn_data == data:
+                            await event.answer("⚡")
+                            await btn.click()
+                            return
+    except:
+        pass
+    
     await event.answer("⏳ Expiró")
 
 # ============ ARRANQUE ============
