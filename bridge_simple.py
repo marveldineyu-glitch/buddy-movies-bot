@@ -1,16 +1,36 @@
-import asyncio, os, threading, gc, time, urllib.request
+import asyncio, os, threading, gc, time, urllib.request, re
 from collections import deque, OrderedDict
 from telethon import TelegramClient, events, Button
 from telethon.sessions import StringSession
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
+# ============ CONFIG ============
 API_ID = 28074212
 API_HASH = "b18dae908474a377684922f3e9d5b795"
-BOT_TOKEN = "7812301734:AAHIXx70G83tb41pBczdCcdhHRiBlz43g7A"
+BOT_TOKEN = "8984212389:AAFZMh_ZQZm8DlIqPLvQEljnC1UPVtRJV-Q"
 SESSION = "1AZWarzYBu72KHN1Z6-0Q0I9KI7JSZ_3dpMTSuiN6aNsb_STMDHX10-fo09zyXAOhbRSHE0gJJlFU3iRYuqPMAu_U_ka8RuHU98KFxMVTOGWZrilLGBsZSUirNT1C4-8Q4Po3XX_kWI_6GSCEc_pRBgCktyuzZL4rSXwKlCSpx1-NmSqQ-Vb62e47hKUznQugDB31Sl71tM7-3MLMp3EmqbIA_m5f6zA2gZYX4swtE0aCw1Su8neeah5rGTQI7imOISQZRNgStTrmcmBtmUVVPmzqM6-b512Np3cLBv5vIMBchTwqB77ipLEj-xHhdB8hdIPPJtvo9aqQBtZv_faUy-PrhAeiNmo="
 SEARCH_GROUP = "@pooppuuui"
 CANAL = "@BuddyMovies_canal"
 GRUPO = "@mabu205"
+GRUPO_ID = -1003327241039
+MI_GRUPO = "@BuddyMovies_official"
+
+# ============ REEMPLAZOS ============
+REPLACE_PATTERNS = [
+    (r'@TlgramMovieGroup_Bot', '@BuddyMovies_Bot'),
+    (r'@TlgramMovieGroup_Bot', '@BuddyMovies_Bot'),
+    (r'❤️\s*@TlgramMovieGroup_Bot', '❤️ @BuddyMovies_official'),
+    (r'@FILM_PARADIZE', '@BuddyMovies_official'),
+    (r'@RZXBOTZ', '@BuddyMovies_Bot'),
+]
+
+def replace_ads(text):
+    """Reemplaza menciones de otros bots por las nuestras"""
+    if not text:
+        return text
+    for pattern, replacement in REPLACE_PATTERNS:
+        text = re.sub(pattern, replacement, text)
+    return text
 
 os.environ['PYTHONOPTIMIZE'] = '2'
 gc.set_threshold(5000, 50, 50)
@@ -84,7 +104,7 @@ async def on_result(event):
             name = session.get('name', 'Usuario')
             reply_to = session.get('reply_to')
             
-            raw = m.text or ""
+            raw = replace_ads(m.text or "")
             sent = await user.send_file(CANAL, m.media, caption=raw)
             link = f"https://t.me/{CANAL[1:]}/{sent.id}"
             title = raw.split('\n')[0][:80] if raw else "Archivo"
@@ -111,26 +131,24 @@ async def on_edit(event):
     if any(x in low for x in ["buscando", "espera"]):
         return
     
+    text = replace_ads(m.text)
     search_msg_id = m.id
     buttons = make_buttons(m)
     
-    # CASO 1: Editar mensaje existente en mirror
     if search_msg_id in mirror:
         our_id, chat_id = mirror[search_msg_id]
         try:
-            await bot.edit_message(chat_id, our_id, m.text[:4000], buttons=buttons)
+            await bot.edit_message(chat_id, our_id, text[:4000], buttons=buttons)
             return
         except:
-            # Si falla, eliminar mirror y enviar nuevo
             mirror.pop(search_msg_id, None)
     
-    # CASO 2: Buscar sesión activa
     for req_id, session in list(user_sessions.items()):
         if session.get('search_msg_id') == search_msg_id:
             try:
                 sent = await bot.send_message(
                     session.get('chat_id', GRUPO),
-                    m.text[:4000],
+                    text[:4000],
                     buttons=buttons
                 )
                 if sent:
@@ -139,9 +157,8 @@ async def on_edit(event):
             except:
                 pass
     
-    # CASO 3: Respaldo
     try:
-        sent = await bot.send_message(GRUPO, m.text[:4000], buttons=buttons)
+        sent = await bot.send_message(GRUPO, text[:4000], buttons=buttons)
         if sent:
             mirror[search_msg_id] = (sent.id, GRUPO)
     except:
@@ -150,6 +167,22 @@ async def on_edit(event):
 @bot.on(events.NewMessage)
 async def on_msg(event):
     clean_memory()
+    
+    # MENSAJE PRIVADO -> Redirigir al grupo
+    if event.is_private:
+        await event.reply(
+            "🎬 <b>¡BuddyPelis!</b>\n\n"
+            "📽️ <b>+5 millones de películas y series</b>\n"
+            "🔍 Busca sin límites en el grupo\n\n"
+            f"👉 <b>Únete:</b> {MI_GRUPO}",
+            buttons=[[Button.url("🎥 IR AL GRUPO", f"https://t.me/{MI_GRUPO[1:]}")]],
+            link_preview=False
+        )
+        return
+    
+    # SOLO FUNCIONA EN EL GRUPO @mabu205
+    if event.chat_id != GRUPO_ID:
+        return
     
     if event.out or not event.text:
         return
@@ -194,18 +227,13 @@ async def on_click(event):
     if not data:
         return
     
-    # REENVIAR EL CLICK al mensaje original en SEARCH_GROUP
-    # Buscar en mirror por el msg_id del mensaje clickeado
     clicked_msg_id = event.message_id
     
-    # Encontrar el search_msg_id que corresponde a este mensaje
     for search_msg_id, (our_id, chat_id) in list(mirror.items()):
         if our_id == clicked_msg_id:
             try:
-                # Obtener el mensaje original del bot de búsqueda
                 msgs = await user.get_messages(SEARCH_GROUP, ids=[search_msg_id])
                 if msgs and msgs[0].buttons:
-                    # Buscar el botón con ese callback_data y clickearlo
                     for row in msgs[0].buttons:
                         for btn in row:
                             btn_data = btn.data.decode() if isinstance(btn.data, bytes) else btn.data
@@ -216,7 +244,6 @@ async def on_click(event):
             except:
                 pass
     
-    # Fallback: buscar en mensajes recientes
     try:
         msgs = await user.get_messages(SEARCH_GROUP, limit=30)
         for m in msgs:
@@ -247,6 +274,8 @@ async def main():
     await user.start()
     await bot.start(bot_token=BOT_TOKEN)
     print(f"✅ Bridge listo -> {GRUPO}")
+    print(f"🔒 Solo funciona en: {GRUPO} ({GRUPO_ID})")
+    print(f"📩 PV redirige a: {MI_GRUPO}")
     asyncio.create_task(heartbeat())
     await asyncio.gather(bot.run_until_disconnected(), user.run_until_disconnected())
 
