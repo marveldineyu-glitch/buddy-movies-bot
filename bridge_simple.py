@@ -7,7 +7,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 # ============ CONFIG ============
 API_ID = 28074212
 API_HASH = "b18dae908474a377684922f3e9d5b795"
-BOT_TOKEN = "7812301734:AAHIXx70G83tb41pBczdCcdhHRiBlz43g7A"
+BOT_TOKEN = "8984212389:AAFZMh_ZQZm8DlIqPLvQEljnC1UPVtRJV-Q"
 SESSION = "1AZWarzQBu5hWbHakw_V4c82HJA0uCNxvwdS_2JHHEVUbCghWQtCFrCbvfFEAMYTh1sCL3mMpTCJMmETKHXkmgBhynikL_1MTEXJfDlFxjnZQDXf1Glbd5w0HuyCQwEP6K_F2DnAS5vsGtH452l_HDS0uQMAGryhoTV7n5Tr9-5E1DmwY4CfKNV7uzYat15FQ6Nsm_vu8iPnQEwy5w5egiY_xnULhFKIkjWrr9gm7WS_OZbSwmEThy32o3I7zxIO__BiRmAFqPnICFo8OJR_FqU7JYoGvHeScnbgbOGU-bcmFUZrq_sFBbldOn1Y4G0TBw6gLeCCUjhwIh-td7KAjaDIRdaoI_lc="
 SEARCH_GROUP = "@pooppuuui"
 CANAL = "@BuddyMovies_canal"
@@ -21,7 +21,7 @@ user_sessions = OrderedDict()
 mirror = OrderedDict()
 rate_limit = {}
 
-bot = TelegramClient('simple_bot', API_ID, API_HASH, 
+bot = TelegramClient('buddy_bot2', API_ID, API_HASH, 
                      retry_delay=3, auto_reconnect=True, timeout=20)
 user = TelegramClient(StringSession(SESSION), API_ID, API_HASH,
                       retry_delay=3, auto_reconnect=True, timeout=20)
