@@ -17,7 +17,8 @@ os.environ['PYTHONOPTIMIZE'] = '2'
 gc.set_threshold(5000, 50, 50)
 
 # ============ ESTADO OPTIMIZADO ============
-user_sessions = OrderedDict()  # {user_id: {name, reply_to, timestamp}}
+user_sessions = OrderedDict()  # {search_msg_id: {user_id, name, reply_to}}
+search_results = {}  # {search_msg_id: (chat_id, result_msg_id)}  # {user_id: {name, reply_to, timestamp}}
 search_results = {}  # {search_msg_id: (chat_id, result_msg_id)} - para editar el correcto
 button_map = {}  # {callback_data: (search_msg_id, row_idx, btn_idx)} - RESPUESTA INSTANTÁNEA
 rate_limit = {}
@@ -172,7 +173,8 @@ async def on_edit(event):
             pass
     
     # Si no existe, enviar nuevo al último usuario
-    for uid, session in list(user_sessions.items()):
+    session = user_sessions.get(search_msg_id, None)
+    if session:
         try:
             sent = await bot.send_message(
                 session.get('chat_id', GRUPO),
@@ -184,7 +186,6 @@ async def on_edit(event):
                 search_results[search_msg_id] = (session.get('chat_id', GRUPO), sent.id)
         except:
             pass
-        break
 
 # ============ USUARIOS ============
 @bot.on(events.NewMessage)
