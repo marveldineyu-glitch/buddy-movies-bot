@@ -10,7 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping bridge-simple
-        run: curl -s -o /dev/null -w "%{http_code}" https://bridge-simple-test.onrender.com && echo ""
-      
+        run: curl -s https://bridge-simple-test.onrender.com
       - name: Ping bridge-searchbot
-        run: curl -s -o /dev/null -w "%{http_code}" https://bridge-searchbot.onrender.com && echo ""
+        run: curl -s https://bridge-searchbot.onrender.com
+      - name: Ping bridge-autofilter
+        run: curl -s https://bridge-autofilter.onrender.com
