@@ -4,14 +4,13 @@ from telethon import TelegramClient, events, Button
 from telethon.sessions import StringSession
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-# ============ CONFIG ============
 API_ID = 28074212
 API_HASH = "b18dae908474a377684922f3e9d5b795"
 BOT_TOKEN = "8463069047:AAGeZg0IQd-1-Mv3ubxqnwZY1oJgxio9hr8"
 SESSION = "1AZWarzQBuzncKy_mbzKcjlq0_XeKVuhMaiHWMBs3kkt9hmss9EcHTh9f9RtgQYkoDx4oXfLs8rnlwzNA8AHxmt47X2J3r4YJr0QVNVzX3meQKnDv1EKsnctVofcPlsHGuXPZutTrhs0-rtMFXO8TYMESuLbcu0BlENZDA6LVWzItTe17yMvgWexGLJMIyhO-yIrRxHr4838YkKxdxUflsSkjtSZIV8W4EWtrd6eOcTcZbaQyJEUT6jcyXrePbmfaOjMoOsx1PJF1dQisoPP_C-mRSHgp59Za4LmBM4EqQgzXeoPdUdXFRDkCJAfjzc3p6lnU7HqEtcKmm2EIzY43vj_iKSroOOo="
 SEARCH_GROUP = "@TlgramMovieSearch_Bot"
-CANAL = "@prueba22299"
-GRUPO = "@mabu205"
+CANAL = "@BuddyMovies_canal"
+GRUPO = "@BuddyMovies_official"
 
 os.environ['PYTHONOPTIMIZE'] = '2'
 gc.set_threshold(5000, 50, 50)
@@ -21,24 +20,19 @@ search_results = {}
 button_map = {}
 rate_limit = {}
 
-bot = TelegramClient('search_bridge2', API_ID, API_HASH, 
-                     retry_delay=3, auto_reconnect=True, timeout=15)
-user = TelegramClient(StringSession(SESSION), API_ID, API_HASH,
-                      retry_delay=3, auto_reconnect=True, timeout=15)
+bot = TelegramClient('search_bridge2', API_ID, API_HASH, retry_delay=3, auto_reconnect=True, timeout=15)
+user = TelegramClient(StringSession(SESSION), API_ID, API_HASH, retry_delay=3, auto_reconnect=True, timeout=15)
+
+SKIP_BUTTONS = ['compartir bot', 'añadir a grupo', 'menú principal', 'share bot', 'add to group', 'main menu']
 
 def clean_memory():
     now = time.time()
     expired = [k for k, v in user_sessions.items() if now - v.get('timestamp', 0) > 300]
-    for k in expired:
-        user_sessions.pop(k, None)
+    for k in expired: user_sessions.pop(k, None)
     if len(search_results) > 100:
-        oldest = list(search_results.keys())[:50]
-        for k in oldest:
-            search_results.pop(k, None)
+        for k in list(search_results.keys())[:50]: search_results.pop(k, None)
     if len(button_map) > 1000:
-        oldest = list(button_map.keys())[:500]
-        for k in oldest:
-            button_map.pop(k, None)
+        for k in list(button_map.keys())[:500]: button_map.pop(k, None)
     gc.collect()
 
 def check_rate_limit(user_id):
@@ -46,261 +40,171 @@ def check_rate_limit(user_id):
     if user_id in rate_limit:
         recent = [t for t in rate_limit[user_id] if now - t < 60]
         rate_limit[user_id] = recent
-        if len(recent) >= 15:
-            return False
-    else:
-        rate_limit[user_id] = []
+        if len(recent) >= 15: return False
+    else: rate_limit[user_id] = []
     rate_limit[user_id].append(now)
     return True
 
 def cache_buttons(msg):
-    if not msg or not msg.buttons:
-        return None
+    if not msg or not msg.buttons: return None
     btns = []
     for row_idx, row in enumerate(msg.buttons):
         r = []
         for btn_idx, btn in enumerate(row):
             if btn.data:
                 data = btn.data.decode() if isinstance(btn.data, bytes) else btn.data
+                # Saltar botones no deseados
+                if btn.text and any(skip in btn.text.lower() for skip in SKIP_BUTTONS):
+                    continue
                 button_map[data] = (msg.id, row_idx, btn_idx)
                 r.append(Button.inline(btn.text[:50], data[:64]))
             elif btn.url:
+                if btn.text and any(skip in btn.text.lower() for skip in SKIP_BUTTONS):
+                    continue
                 r.append(Button.url(btn.text[:50], btn.url))
-        if r:
-            btns.append(r)
+        if r: btns.append(r)
     return btns if btns else None
 
 def replace_ads(text):
     if not text: return text
+    text = text.replace("@TlgramMovieSearch_Bot", "@BuddyNotify_Bot")
     text = text.replace("@TlgramMovieGroup_Bot", "@BuddyMovies_Bot")
+    text = text.replace("@MotorBusquedaBot", "@BuddyNotify_Bot")
+    text = text.replace("Estrenos 2026", "@BuddyMovies_official")
     text = text.replace("@FILM_PARADIZE", "@BuddyMovies_official")
     text = text.replace("@RZXBOTZ", "@BuddyMovies_Bot")
+    text = re.sub(r'https?://[^\s]*terabox[^\s]*', '', text)
+    text = text.replace('https://1024terabox.com/s/1lYx-v4HO1gmW6-J2qZFEgw', '@BuddyMovies_official')
+    text = re.sub(r'\n@BuddyNotify_Bot\s*$', '', text)
+    text = re.sub(r'@BuddyNotify_Bot\s*$', '', text)
     return text
 
-# ============ RESULTADOS ============
 @user.on(events.NewMessage(chats=SEARCH_GROUP))
 async def on_result(event):
     clean_memory()
     m = event.message
-    
-    if not m.sender or not m.sender.bot:
-        return
-    
-    if m.text:
-        low = m.text.lower()
-        if any(x in low for x in ["buscando", "espera", "recuerda usar", "ayúdanos", "compártelo", "gracias"]):
-            return
+    if not m.sender or not m.sender.bot: return
+    if m.text and any(x in m.text.lower() for x in ["procesando", "espera", "maldito", "comparte", "terabox", "revisa el anuncio"]): return
     
     if m.media:
-        # Buscar la sesión correcta
-        session = user_sessions.get(m.id, None)
-        if not session and user_sessions:
+        if user_sessions:
             uid = list(user_sessions.keys())[-1]
             session = user_sessions[uid]
-        
-        if session:
             name = session.get('name', 'Usuario')
-            reply_to = session.get('reply_to')
-            
             raw = replace_ads(m.text or "")
             sent = await user.send_file(CANAL, m.media, caption=raw)
             link = f"https://t.me/{CANAL[1:]}/{sent.id}"
             title = raw.split('\n')[0][:80] if raw else "Archivo"
-            
-            await bot.send_message(
-                GRUPO,
-                f"🎬 **{name}**\n📁 {title}\n\n🔗 {link}",
-                buttons=[[Button.url("🎥 VER CONTENIDO", link)]],
-                link_preview=False,
-                reply_to=reply_to
-            )
+            await bot.send_message(session.get('chat_id', GRUPO), f"🎬 **{name}**\n📁 {title}\n\n🔗 {link}", buttons=[[Button.url("🎥 VER CONTENIDO", link)]], link_preview=False)
     
-    elif m.text and m.buttons and len(m.text) > 20:
-        buttons = cache_buttons(m)
+    elif m.text and len(m.text) > 20:
+        # Si es mensaje de "no encontrado", NO poner botones
+        if 'no se encontraron' in m.text.lower() or 'no se encontró' in m.text.lower():
+            buttons = None
+        else:
+            buttons = cache_buttons(m)
         text = replace_ads(m.text)
         search_msg_id = m.id
-        
         if search_msg_id in search_results:
-            chat_id, result_msg_id = search_results[search_msg_id]
+            try: await bot.edit_message(search_results[m.id][0], search_results[m.id][1], text[:4000], buttons=buttons); return
+            except: pass
+        for uid, session in list(user_sessions.items()):
             try:
-                await bot.edit_message(chat_id, result_msg_id, text[:4000], buttons=buttons)
-                return
-            except:
-                pass
-        
-        session = user_sessions.get(search_msg_id, None)
-        if session:
-            try:
-                sent = await bot.send_message(
-                    session.get('chat_id', GRUPO),
-                    text[:4000],
-                    buttons=buttons,
-                    reply_to=session.get('reply_to')
-                )
-                if sent:
-                    search_results[search_msg_id] = (session.get('chat_id', GRUPO), sent.id)
-            except:
-                pass
+                sent = await bot.send_message(session.get('chat_id', GRUPO), text[:4000], buttons=buttons, reply_to=session.get('reply_to'))
+                if sent: search_results[search_msg_id] = (session.get('chat_id', GRUPO), sent.id)
+            except: pass
+            break
 
 @user.on(events.MessageEdited(chats=SEARCH_GROUP))
 async def on_edit(event):
     clean_memory()
     m = event.message
+    if not m.sender or not m.sender.bot or not m.text: return
+    if any(x in m.text.lower() for x in ["procesando", "espera"]): return
     
-    if not m.sender or not m.sender.bot or not m.text:
-        return
-    
-    low = m.text.lower()
-    if any(x in low for x in ["buscando", "espera"]):
-        return
-    
-    buttons = cache_buttons(m)
+    # Si es mensaje de "no encontrado", NO poner botones
+    if 'no se encontraron' in m.text.lower() or 'no se encontró' in m.text.lower():
+        buttons = None
+    else:
+        buttons = cache_buttons(m)
     text = replace_ads(m.text)
     search_msg_id = m.id
-    
     if search_msg_id in search_results:
-        chat_id, result_msg_id = search_results[search_msg_id]
+        try: await bot.edit_message(search_results[m.id][0], search_results[m.id][1], text[:4000], buttons=buttons); return
+        except: pass
+    for uid, session in list(user_sessions.items()):
         try:
-            await bot.edit_message(chat_id, result_msg_id, text[:4000], buttons=buttons)
-            return
-        except:
-            pass
-    
-    session = user_sessions.get(search_msg_id, None)
-    if session:
-        try:
-            sent = await bot.send_message(
-                session.get('chat_id', GRUPO),
-                text[:4000],
-                buttons=buttons,
-                reply_to=session.get('reply_to')
-            )
-            if sent:
-                search_results[search_msg_id] = (session.get('chat_id', GRUPO), sent.id)
-        except:
-            pass
+            sent = await bot.send_message(session.get('chat_id', GRUPO), text[:4000], buttons=buttons, reply_to=session.get('reply_to'))
+            if sent: search_results[search_msg_id] = (session.get('chat_id', GRUPO), sent.id)
+        except: pass
+        break
 
-# ============ USUARIOS ============
 @bot.on(events.NewMessage)
 async def on_user_msg(event):
     clean_memory()
-    
     if event.is_private:
-        await event.reply(
-            "🎬 <b>¡BuddyPelis!</b>\n\n"
-            "📽️ <b>+5 millones de películas y series</b>\n"
-            "🔍 Busca sin límites en el grupo\n\n"
-            "👉 <b>Únete:</b> @BuddyMovies_official",
-            buttons=[[Button.url("🎥 IR AL GRUPO", "https://t.me/BuddyMovies_official")]],
-            link_preview=False
-        )
+        await event.reply("🎬 <b>¡BuddyPelis!</b>\n\n📽️ <b>+5 millones de películas y series</b>\n🔍 Busca sin límites en el grupo\n\n👉 <b>Únete:</b> @BuddyMovies_official", buttons=[[Button.url("🎥 IR AL GRUPO", "https://t.me/BuddyMovies_official")]], link_preview=False)
         return
-    
-    if event.out or not event.text:
-        return
-    
+    if event.out or not event.text: return
     q = event.text.strip()
-    if len(q) < 2 or q.startswith("/"):
+    if len(q) < 2 or q.startswith("/"): return
+    if not check_rate_limit(event.sender_id):
+        try: await event.reply("⏳ Espera un momento...")
+        except: pass
         return
-    
-    user_id = event.sender_id
-    
-    if not check_rate_limit(user_id):
-        try:
-            await event.reply("⏳ Espera un momento...")
-        except:
-            pass
-        return
-    
-    try:
-        sender = await bot.get_entity(user_id)
-        name = sender.first_name or "Usuario"
-    except:
-        name = "Usuario"
-    
-    sent = await user.send_message(SEARCH_GROUP, f"/search {q}")
-    user_sessions[sent.id] = {
-        'user_id': user_id,
-        'name': name,
-        'chat_id': event.chat_id,
-        'reply_to': event.message.id,
-        'timestamp': time.time()
-    }
+    try: sender = await bot.get_entity(event.sender_id); name = sender.first_name or "Usuario"
+    except: name = "Usuario"
+    user_sessions[event.sender_id] = {'name': name, 'chat_id': event.chat_id, 'reply_to': event.message.id, 'timestamp': time.time()}
+    button_map.clear()
+    sent = await user.send_message(SEARCH_GROUP, q)
+    user_sessions[event.sender_id]['search_msg_id'] = sent.id
 
-# ============ CALLBACKS INSTANTÁNEOS ============
 @bot.on(events.CallbackQuery)
 async def on_click(event):
     data = event.data.decode() if isinstance(event.data, bytes) else event.data
-    if not data:
-        return
-    
+    if not data: return
     if data in button_map:
-        msg_id, row_idx, btn_idx = button_map[data]
         try:
-            msgs = await user.get_messages(SEARCH_GROUP, ids=[msg_id])
+            msgs = await user.get_messages(SEARCH_GROUP, ids=[button_map[data][0]])
             if msgs and msgs[0].buttons:
-                btn = msgs[0].buttons[row_idx][btn_idx]
                 await event.answer("⚡")
-                await btn.click()
+                await msgs[0].buttons[button_map[data][1]][button_map[data][2]].click()
                 return
-        except:
-            pass
-    
+        except: pass
     try:
         msgs = await user.get_messages(SEARCH_GROUP, limit=50)
         for m in msgs:
             if m.buttons:
                 for row in m.buttons:
                     for btn in row:
-                        btn_data = btn.data.decode() if isinstance(btn.data, bytes) else btn.data
-                        if btn_data == data:
-                            await event.answer("⚡")
-                            await btn.click()
-                            return
-    except:
-        pass
-    
+                        if (btn.data.decode() if isinstance(btn.data, bytes) else btn.data) == data:
+                            await event.answer("⚡"); await btn.click(); return
+    except: pass
     await event.answer("⏳ Expiró")
 
-# ============ ARRANQUE ============
 async def heartbeat():
     while True:
         await asyncio.sleep(180)
-        try:
-            await bot.get_me()
-            await user.get_me()
-            clean_memory()
-        except:
-            pass
+        try: await bot.get_me(); await user.get_me(); clean_memory()
+        except: pass
 
 async def main():
-    await user.start()
-    await bot.start(bot_token=BOT_TOKEN)
-    print(f"✅ Bridge @TlgramMovieSearch_Bot → {GRUPO}")
+    await user.start(); await bot.start(bot_token=BOT_TOKEN)
+    print(f"✅ @BuddyNotify_Bot → {GRUPO}")
     asyncio.create_task(heartbeat())
     await asyncio.gather(bot.run_until_disconnected(), user.run_until_disconnected())
 
 class H(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200); self.end_headers(); self.wfile.write(b"OK")
-    def do_HEAD(self):
-        self.send_response(200); self.end_headers()
-
-def run_server():
-    HTTPServer(("0.0.0.0", int(os.environ.get("PORT", 10000))), H).serve_forever()
-
+    def do_GET(self): self.send_response(200); self.end_headers(); self.wfile.write(b"OK")
+    def do_HEAD(self): self.send_response(200); self.end_headers()
+def run_server(): HTTPServer(("0.0.0.0", int(os.environ.get("PORT", 10000))), H).serve_forever()
 threading.Thread(target=run_server, daemon=True).start()
 
 def keep_alive():
-    port = int(os.environ.get("PORT", 10000))
-    url = f"http://localhost:{port}"
     while True:
         time.sleep(600)
-        try:
-            urllib.request.urlopen(url, timeout=5)
-        except:
-            pass
-
+        try: urllib.request.urlopen(f"http://localhost:{int(os.environ.get('PORT', 10000))}", timeout=5)
+        except: pass
 threading.Thread(target=keep_alive, daemon=True).start()
 
 asyncio.run(main())
