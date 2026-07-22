@@ -67,7 +67,7 @@ def replace_ads(text):
     text = text.replace("@RZXBOTZ", "@BuddyMovies_Bot")
     text = re.sub(r'https?://[^\s]*terabox[^\s]*', '', text)
     text = text.replace('https://1024terabox.com/s/1lYx-v4HO1gmW6-J2qZFEgw', '@BuddyMovies_official')
-    text = re.sub(r'
+    text = re.sub(r'https?://[^\s]*terabox[^\s]*', '', text)
 @BuddyNotify_Bot\s*$', '', text)
     return text
 
