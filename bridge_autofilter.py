@@ -9,8 +9,8 @@ API_HASH = "b18dae908474a377684922f3e9d5b795"
 BOT_TOKEN = "7690330806:AAFAemkor12n71UAPaoJcnAcnPI_R_Xqygs"
 SESSION = "1AZWarzQBu2q3JnP8YtBiwtloyr8QVF6AOFug129qO5bNQIRLsvnGelrXXIRdVYezjgm0IJNH5d_3lIBSNTxBTQnSss_Oz_MQksUSw1883Vbx5O3RyUM6UhYxhPe9jNuCHFhfTPn3iwxlQ63tJiNJ_Dd7ndNYdDFKsnrnKDvOkGX6H6UZyABCKj25nq8MCp6LRs22lV-AkmmVkdPRwL2CF7bIosmIHnfOrA2VxO_8ozC-iB08xA19YEqQtbA6YxCcYVgQuJAAyqqRIhqtHSibUloyqzYiLGUX7wWKPjYOrGOI4X-_NJAmTlkIvtQQHwd1HKI6NVLjnLker7Nas0wwUja1lOCfpQI="
 SEARCH_GROUP = "@AutoFilter_Robot"
-CANAL = "@prueba22299"
-GRUPO = "@mabu205"
+CANAL = "@BuddyMovies_canal"
+GRUPO = "@BuddyMovies_official"
 
 os.environ['PYTHONOPTIMIZE'] = '2'
 gc.set_threshold(5000, 50, 50)
@@ -20,7 +20,7 @@ search_results = {}
 button_map = {}
 rate_limit = {}
 
-bot = TelegramClient('autofilter_test', API_ID, API_HASH, retry_delay=3, auto_reconnect=True, timeout=15)
+bot = TelegramClient('autofilter_prod', API_ID, API_HASH, retry_delay=3, auto_reconnect=True, timeout=15)
 user = TelegramClient(StringSession(SESSION), API_ID, API_HASH, retry_delay=3, auto_reconnect=True, timeout=15)
 
 def clean_memory():
