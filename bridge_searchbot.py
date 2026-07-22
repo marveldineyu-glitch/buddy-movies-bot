@@ -65,10 +65,9 @@ def replace_ads(text):
     text = text.replace("Estrenos 2026", "@BuddyMovies_official")
     text = text.replace("@FILM_PARADIZE", "@BuddyMovies_official")
     text = text.replace("@RZXBOTZ", "@BuddyMovies_Bot")
-    text = re.sub(r'https?://[^\s]*terabox[^\s]*', '', text)
+    text = re.sub(r'https?://\S*terabox\S*', '', text)
     text = text.replace('https://1024terabox.com/s/1lYx-v4HO1gmW6-J2qZFEgw', '@BuddyMovies_official')
-    text = re.sub(r'https?://[^\s]*terabox[^\s]*', '', text)
-@BuddyNotify_Bot\s*$', '', text)
+    text = text.rstrip('@BuddyNotify_Bot').rstrip()
     return text
 
 @user.on(events.NewMessage(chats=SEARCH_GROUP))
