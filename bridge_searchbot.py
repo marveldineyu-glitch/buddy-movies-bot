@@ -23,8 +23,6 @@ rate_limit = {}
 bot = TelegramClient('search_bridge2', API_ID, API_HASH, retry_delay=3, auto_reconnect=True, timeout=15)
 user = TelegramClient(StringSession(SESSION), API_ID, API_HASH, retry_delay=3, auto_reconnect=True, timeout=15)
 
-SKIP_BUTTONS = ['compartir bot', 'añadir a grupo', 'menú principal', 'share bot', 'add to group', 'main menu']
-
 def clean_memory():
     now = time.time()
     expired = [k for k, v in user_sessions.items() if now - v.get('timestamp', 0) > 300]
@@ -53,15 +51,9 @@ def cache_buttons(msg):
         for btn_idx, btn in enumerate(row):
             if btn.data:
                 data = btn.data.decode() if isinstance(btn.data, bytes) else btn.data
-                # Saltar botones no deseados
-                if btn.text and any(skip in btn.text.lower() for skip in SKIP_BUTTONS):
-                    continue
                 button_map[data] = (msg.id, row_idx, btn_idx)
                 r.append(Button.inline(btn.text[:50], data[:64]))
-            elif btn.url:
-                if btn.text and any(skip in btn.text.lower() for skip in SKIP_BUTTONS):
-                    continue
-                r.append(Button.url(btn.text[:50], btn.url))
+            elif btn.url: r.append(Button.url(btn.text[:50], btn.url))
         if r: btns.append(r)
     return btns if btns else None
 
@@ -75,8 +67,8 @@ def replace_ads(text):
     text = text.replace("@RZXBOTZ", "@BuddyMovies_Bot")
     text = re.sub(r'https?://[^\s]*terabox[^\s]*', '', text)
     text = text.replace('https://1024terabox.com/s/1lYx-v4HO1gmW6-J2qZFEgw', '@BuddyMovies_official')
-    text = re.sub(r'\n@BuddyNotify_Bot\s*$', '', text)
-    text = re.sub(r'@BuddyNotify_Bot\s*$', '', text)
+    text = re.sub(r'
+@BuddyNotify_Bot\s*$', '', text)
     return text
 
 @user.on(events.NewMessage(chats=SEARCH_GROUP))
@@ -84,21 +76,22 @@ async def on_result(event):
     clean_memory()
     m = event.message
     if not m.sender or not m.sender.bot: return
-    if m.text and any(x in m.text.lower() for x in ["procesando", "espera", "maldito", "comparte", "terabox", "revisa el anuncio"]): return
+    if m.text and any(x in m.text.lower() for x in ["buscando", "espera", "recuerda usar", "ayúdanos", "compártelo", "gracias"]): return
     
     if m.media:
         if user_sessions:
             uid = list(user_sessions.keys())[-1]
             session = user_sessions[uid]
             name = session.get('name', 'Usuario')
+            reply_to = session.get('reply_to')
             raw = replace_ads(m.text or "")
             sent = await user.send_file(CANAL, m.media, caption=raw)
             link = f"https://t.me/{CANAL[1:]}/{sent.id}"
             title = raw.split('\n')[0][:80] if raw else "Archivo"
-            await bot.send_message(session.get('chat_id', GRUPO), f"🎬 **{name}**\n📁 {title}\n\n🔗 {link}", buttons=[[Button.url("🎥 VER CONTENIDO", link)]], link_preview=False)
+            await bot.send_message(GRUPO, f"🎬 **{name}**\n📁 {title}\n\n🔗 {link}", buttons=[[Button.url("🎥 VER CONTENIDO", link)]], link_preview=False, reply_to=reply_to)
     
     elif m.text and len(m.text) > 20:
-        # Si es mensaje de "no encontrado", NO poner botones
+        # Si es "no encontrado", no poner botones
         if 'no se encontraron' in m.text.lower() or 'no se encontró' in m.text.lower():
             buttons = None
         else:
@@ -120,13 +113,8 @@ async def on_edit(event):
     clean_memory()
     m = event.message
     if not m.sender or not m.sender.bot or not m.text: return
-    if any(x in m.text.lower() for x in ["procesando", "espera"]): return
-    
-    # Si es mensaje de "no encontrado", NO poner botones
-    if 'no se encontraron' in m.text.lower() or 'no se encontró' in m.text.lower():
-        buttons = None
-    else:
-        buttons = cache_buttons(m)
+    if any(x in m.text.lower() for x in ["buscando", "espera"]): return
+    buttons = cache_buttons(m)
     text = replace_ads(m.text)
     search_msg_id = m.id
     if search_msg_id in search_results:
@@ -156,7 +144,7 @@ async def on_user_msg(event):
     except: name = "Usuario"
     user_sessions[event.sender_id] = {'name': name, 'chat_id': event.chat_id, 'reply_to': event.message.id, 'timestamp': time.time()}
     button_map.clear()
-    sent = await user.send_message(SEARCH_GROUP, q)
+    sent = await user.send_message(SEARCH_GROUP, f"/search {q}")
     user_sessions[event.sender_id]['search_msg_id'] = sent.id
 
 @bot.on(events.CallbackQuery)
