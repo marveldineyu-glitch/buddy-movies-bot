@@ -92,7 +92,6 @@ async def on_result(event):
             return
     
     if m.media:
-        # Buscar la sesión correcta
         session = user_sessions.get(m.id, None)
         if not session and user_sessions:
             uid = list(user_sessions.keys())[-1]
