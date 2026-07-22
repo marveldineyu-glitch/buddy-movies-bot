@@ -1,36 +1,30 @@
 import asyncio, re, os, threading, gc, time, urllib.request
-from collections import OrderedDict
+from collections import OrderedDict, deque
 from telethon import TelegramClient, events, Button
 from telethon.sessions import StringSession
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 API_ID = 28074212
 API_HASH = "b18dae908474a377684922f3e9d5b795"
-BOT_TOKEN = "8876362915:AAGEkzWdokk2rjc0j3w-iOTdT5lIdDjjPYs"
+BOT_TOKEN = "8952066629:AAHLnoIl62kY0wf4XrFWKiiDq9UaNbjk9zE"
 SESSION = "1AZWarzsBu3ny9-HTgWpuIkTxb2vRDvQJu0tU-l_79zEFPRsg1fX4vV7aQw5Qew3KyFIi7-VuZDR3niQvGaXRh89KP2AywppMfdolEwgquZIRROPPNuLQovcl5hpp4vvt6r1gb6Zr1EZrOBOp4PKiG2RLff0b2bKWzRPd-pr5CbDPtTrIBSFMXnMCDwZvs8wxB6n1KZ6H6b5Ndunvr3yOhSKDfzqhWq8Rz3HpGq6iWo1vI418VFHbUXVvlGBe47jEDQc6eaosxAv1EFjRVbmumdQT7aF1GW3u-H_pfpRwpYQHb0r3hVBMCva6eDuTZ_L5rOaE2Zix41Z3C51umX6FZjdHGuyed20="
-SEARCH_GROUP = "@ChatGPT_rgbot"
-CANAL = "@BuddyMovies_canal"
-GRUPO = "@mabu205"
+CHATBOT = "@gpt3ru_chat_bot"
+CHATBOT_ID = 6157862059
+GRUPO = "@BuddyMovies_official"
 
 os.environ['PYTHONOPTIMIZE'] = '2'
 gc.set_threshold(5000, 50, 50)
 
-user_sessions = OrderedDict()
-search_results = {}
-button_map = {}
+question_queue = deque()
 rate_limit = {}
 
-bot = TelegramClient('chatgpt_bridge', API_ID, API_HASH, retry_delay=3, auto_reconnect=True, timeout=15)
+bot = TelegramClient('chatgpt_final', API_ID, API_HASH, retry_delay=3, auto_reconnect=True, timeout=15)
 user = TelegramClient(StringSession(SESSION), API_ID, API_HASH, retry_delay=3, auto_reconnect=True, timeout=15)
 
 def clean_memory():
     now = time.time()
-    expired = [k for k, v in user_sessions.items() if now - v.get('timestamp', 0) > 300]
-    for k in expired: user_sessions.pop(k, None)
-    if len(search_results) > 100:
-        for k in list(search_results.keys())[:50]: search_results.pop(k, None)
-    if len(button_map) > 1000:
-        for k in list(button_map.keys())[:500]: button_map.pop(k, None)
+    if len(question_queue) > 100:
+        for _ in range(50): question_queue.popleft()
     gc.collect()
 
 def check_rate_limit(user_id):
@@ -38,122 +32,72 @@ def check_rate_limit(user_id):
     if user_id in rate_limit:
         recent = [t for t in rate_limit[user_id] if now - t < 60]
         rate_limit[user_id] = recent
-        if len(recent) >= 15: return False
+        if len(recent) >= 10: return False
     else: rate_limit[user_id] = []
     rate_limit[user_id].append(now)
     return True
 
-def cache_buttons(msg):
-    if not msg or not msg.buttons: return None
-    btns = []
-    for row_idx, row in enumerate(msg.buttons):
-        r = []
-        for btn_idx, btn in enumerate(row):
-            if btn.data:
-                data = btn.data.decode() if isinstance(btn.data, bytes) else btn.data
-                button_map[data] = (msg.id, row_idx, btn_idx)
-                r.append(Button.inline(btn.text[:50], data[:64]))
-            elif btn.url: r.append(Button.url(btn.text[:50], btn.url))
-        if r: btns.append(r)
-    return btns if btns else None
+def clean_response(text):
+    text = re.sub(r'https?://\S+', '', text)
+    cut_patterns = [
+        r'\n\nSi quieres[,:]?\s*puedo:?',
+        r'\n\n¿Qué prefieres\?',
+        r'\n\n¿Te gustaría\?',
+        r'\n\n¿Quieres\?',
+        r'\n\nPuedo\s+',
+        r'\n\nDime\s+',
+        r'\n\nSi necesitas\s+',
+        r'\n\nEspero que\s+',
+    ]
+    for pattern in cut_patterns:
+        text = re.split(pattern, text, flags=re.IGNORECASE)[0]
+    return text.strip()
 
-def replace_ads(text):
-    return text if text else ""  # Sin cambios para ChatGPT
-
-@user.on(events.NewMessage(chats=SEARCH_GROUP))
-async def on_result(event):
+@user.on(events.NewMessage(chats=CHATBOT))
+async def on_response(event):
     clean_memory()
     m = event.message
-    if not m.sender or not m.sender.bot: return
-    if m.text and any(x in m.text.lower() for x in ["buscando", "espera", "recuerda usar", "ayúdanos", "compártelo", "gracias"]): return
+    if m.sender_id != CHATBOT_ID: return
+    if m.text and "please wait" in m.text.lower(): return
     
-    if m.media:
-        if user_sessions:
-            uid = list(user_sessions.keys())[-1]
-            session = user_sessions[uid]
-            name = session.get('name', 'Usuario')
-            reply_to = session.get('reply_to')
-            raw = replace_ads(m.text or "")
-            sent = m  # No guardar en canal
-            link = "https://t.me/ChatGPT_rgbot"
-            title = raw.split('\n')[0][:80] if raw else "Archivo"
-            await bot.send_message(GRUPO, f"🤖 **ChatGPT para {name}:**\n\n{raw[:2000]}", buttons=None, link_preview=False, reply_to=reply_to)
-    
-    elif m.text and m.buttons and len(m.text) > 20:
-        buttons = cache_buttons(m)
-        text = replace_ads(m.text)
-        search_msg_id = m.id
-        if search_msg_id in search_results:
-            try: await bot.edit_message(search_results[m.id][0], search_results[m.id][1], text[:4000], buttons=buttons); return
-            except: pass
-        for uid, session in list(user_sessions.items()):
-            try:
-                sent = await bot.send_message(session.get('chat_id', GRUPO), text[:4000], buttons=buttons, reply_to=session.get('reply_to'))
-                if sent: search_results[search_msg_id] = (session.get('chat_id', GRUPO), sent.id)
-            except: pass
-            break
-
-@user.on(events.MessageEdited(chats=SEARCH_GROUP))
-async def on_edit(event):
-    clean_memory()
-    m = event.message
-    if not m.sender or not m.sender.bot or not m.text: return
-    if any(x in m.text.lower() for x in ["buscando", "espera"]): return
-    buttons = cache_buttons(m)
-    text = replace_ads(m.text)
-    search_msg_id = m.id
-    if search_msg_id in search_results:
-        try: await bot.edit_message(search_results[m.id][0], search_results[m.id][1], text[:4000], buttons=buttons); return
-        except: pass
-    for uid, session in list(user_sessions.items()):
+    if question_queue and m.text:
+        uid, name, reply_to = question_queue.popleft()
+        clean = clean_response(m.text)
         try:
-            sent = await bot.send_message(session.get('chat_id', GRUPO), text[:4000], buttons=buttons, reply_to=session.get('reply_to'))
-            if sent: search_results[search_msg_id] = (session.get('chat_id', GRUPO), sent.id)
-        except: pass
-        break
+            await bot.send_message(GRUPO, f"🤖 **GPT para {name}:**\n\n{clean[:2000]}", reply_to=reply_to)
+        except:
+            await bot.send_message(GRUPO, f"🤖 **GPT para {name}:**\n\n{clean[:2000]}")
 
 @bot.on(events.NewMessage)
 async def on_user_msg(event):
     clean_memory()
+    
     if event.is_private:
-        await event.reply("🎬 <b>¡BuddyPelis!</b>\n\n📽️ <b>+5 millones de películas y series</b>\n🔍 Busca sin límites en el grupo\n\n👉 <b>Únete:</b> @BuddyMovies_official", buttons=[[Button.url("🎥 IR AL GRUPO", "https://t.me/BuddyMovies_official")]], link_preview=False)
+        await event.reply("🤖 <b>ChatGPT Bot</b>\n\n💬 Haz tus preguntas en el grupo\n\n👉 <b>Únete:</b> @BuddyMovies_official", buttons=[[Button.url("🎥 IR AL GRUPO", "https://t.me/BuddyMovies_official")]], link_preview=False)
         return
+    
     if event.out or not event.text: return
     q = event.text.strip()
     if len(q) < 2 or q.startswith("/"): return
-    if not check_rate_limit(event.sender_id):
+    
+    uid = event.sender_id
+    
+    if not check_rate_limit(uid):
         try: await event.reply("⏳ Espera un momento...")
         except: pass
         return
-    try: sender = await bot.get_entity(event.sender_id); name = sender.first_name or "Usuario"
-    except: name = "Usuario"
-    user_sessions[event.sender_id] = {'name': name, 'chat_id': event.chat_id, 'reply_to': event.message.id, 'timestamp': time.time()}
-    button_map.clear()
-    sent = await user.send_message(SEARCH_GROUP, q)
-    user_sessions[event.sender_id]['search_msg_id'] = sent.id
-
-@bot.on(events.CallbackQuery)
-async def on_click(event):
-    data = event.data.decode() if isinstance(event.data, bytes) else event.data
-    if not data: return
-    if data in button_map:
-        try:
-            msgs = await user.get_messages(SEARCH_GROUP, ids=[button_map[data][0]])
-            if msgs and msgs[0].buttons:
-                await event.answer("⚡")
-                await msgs[0].buttons[button_map[data][1]][button_map[data][2]].click()
-                return
-        except: pass
+    
     try:
-        msgs = await user.get_messages(SEARCH_GROUP, limit=50)
-        for m in msgs:
-            if m.buttons:
-                for row in m.buttons:
-                    for btn in row:
-                        if (btn.data.decode() if isinstance(btn.data, bytes) else btn.data) == data:
-                            await event.answer("⚡"); await btn.click(); return
-    except: pass
-    await event.answer("⏳ Expiró")
+        s = await event.get_sender()
+        name = s.first_name if s else "Usuario"
+    except:
+        name = "Usuario"
+    
+    await event.reply(f"⏳ **{name}**, estoy consultando a ChatGPT...")
+    question_queue.append((uid, name, event.message.id))
+    
+    formatted_q = f"Hola soy {name}. Quiero saber sobre esto: '{q}'. ¿Qué es exactamente? ¿Es una película, serie, anime, novela, libro, videojuego, canción o qué tipo de contenido es? Dame una respuesta clara y directa, sin ofrecer ayuda adicional."
+    await user.send_message(CHATBOT, formatted_q)
 
 async def heartbeat():
     while True:
