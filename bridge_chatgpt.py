@@ -129,7 +129,7 @@ async def on_user_msg(event):
     except: name = "Usuario"
     user_sessions[event.sender_id] = {'name': name, 'chat_id': event.chat_id, 'reply_to': event.message.id, 'timestamp': time.time()}
     button_map.clear()
-    sent = await user.send_message(SEARCH_GROUP, f"/search {q}")
+    sent = await user.send_message(SEARCH_GROUP, q)
     user_sessions[event.sender_id]['search_msg_id'] = sent.id
 
 @bot.on(events.CallbackQuery)
