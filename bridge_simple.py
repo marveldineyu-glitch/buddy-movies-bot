@@ -71,28 +71,31 @@ async def on_result(event):
     if not m.sender or not m.sender.bot: return
     if m.text and any(x in m.text.lower() for x in ["buscando", "espera", "recuerda usar", "ayúdanos", "compártelo", "gracias"]): return
     
-    print(f"DEBUG: media={bool(m.media)}, text={bool(m.text)}, btns={bool(m.buttons)}", flush=True)
     if m.media:
-        print(f"DEBUG: ENVIANDO MEDIA", flush=True)
-        session = user_sessions.get(m.id, None) or (list(user_sessions.values())[-1] if user_sessions else None)
-        if session:
+        if user_sessions:
+            uid = list(user_sessions.keys())[-1]
+            session = user_sessions[uid]
             name = session.get('name', 'Usuario')
+            reply_to = session.get('reply_to')
             raw = replace_ads(m.text or "")
             sent = await user.send_file(CANAL, m.media, caption=raw)
             link = f"https://t.me/{CANAL[1:]}/{sent.id}"
             title = raw.split('\n')[0][:80] if raw else "Archivo"
-            await bot.send_message(GRUPO, f"🎬 **{name}**\n📁 {title}\n\n🔗 {link}", buttons=[[Button.url("🎥 VER CONTENIDO", link)]], link_preview=False, reply_to=session.get('reply_to'))
+            await bot.send_message(GRUPO, f"🎬 **{name}**\n📁 {title}\n\n🔗 {link}", buttons=[[Button.url("🎥 VER CONTENIDO", link)]], link_preview=False, reply_to=reply_to)
     
     elif m.text and m.buttons and len(m.text) > 20:
         buttons = cache_buttons(m)
         text = replace_ads(m.text)
-        if m.id in search_results:
+        search_msg_id = m.id
+        if search_msg_id in search_results:
             try: await bot.edit_message(search_results[m.id][0], search_results[m.id][1], text[:4000], buttons=buttons); return
             except: pass
-        session = user_sessions.get(m.id, None)
-        if session:
-            sent = await bot.send_message(session.get('chat_id', GRUPO), text[:4000], buttons=buttons, reply_to=session.get('reply_to'))
-            if sent: search_results[m.id] = (session.get('chat_id', GRUPO), sent.id)
+        for uid, session in list(user_sessions.items()):
+            try:
+                sent = await bot.send_message(session.get('chat_id', GRUPO), text[:4000], buttons=buttons, reply_to=session.get('reply_to'))
+                if sent: search_results[search_msg_id] = (session.get('chat_id', GRUPO), sent.id)
+            except: pass
+            break
 
 @user.on(events.MessageEdited(chats=SEARCH_GROUP))
 async def on_edit(event):
@@ -102,13 +105,16 @@ async def on_edit(event):
     if any(x in m.text.lower() for x in ["buscando", "espera"]): return
     buttons = cache_buttons(m)
     text = replace_ads(m.text)
-    if m.id in search_results:
+    search_msg_id = m.id
+    if search_msg_id in search_results:
         try: await bot.edit_message(search_results[m.id][0], search_results[m.id][1], text[:4000], buttons=buttons); return
         except: pass
-    session = user_sessions.get(m.id, None)
-    if session:
-        sent = await bot.send_message(session.get('chat_id', GRUPO), text[:4000], buttons=buttons, reply_to=session.get('reply_to'))
-        if sent: search_results[m.id] = (session.get('chat_id', GRUPO), sent.id)
+    for uid, session in list(user_sessions.items()):
+        try:
+            sent = await bot.send_message(session.get('chat_id', GRUPO), text[:4000], buttons=buttons, reply_to=session.get('reply_to'))
+            if sent: search_results[search_msg_id] = (session.get('chat_id', GRUPO), sent.id)
+        except: pass
+        break
 
 @bot.on(events.NewMessage)
 async def on_user_msg(event):
@@ -125,8 +131,10 @@ async def on_user_msg(event):
         return
     try: sender = await bot.get_entity(event.sender_id); name = sender.first_name or "Usuario"
     except: name = "Usuario"
+    user_sessions[event.sender_id] = {'name': name, 'chat_id': event.chat_id, 'reply_to': event.message.id, 'timestamp': time.time()}
+    button_map.clear()
     sent = await user.send_message(SEARCH_GROUP, f"/search {q}")
-    user_sessions[sent.id] = {'user_id': event.sender_id, 'name': name, 'chat_id': event.chat_id, 'reply_to': event.message.id, 'timestamp': time.time()}
+    user_sessions[event.sender_id]['search_msg_id'] = sent.id
 
 @bot.on(events.CallbackQuery)
 async def on_click(event):
