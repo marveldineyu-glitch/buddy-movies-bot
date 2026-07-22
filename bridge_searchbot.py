@@ -105,15 +105,15 @@ def replace_ads(text):
     # Si es mensaje de "no encontrado", eliminar botones
     if 'no se encontraron' in text.lower() or 'no se encontró' in text.lower():
         # Quitar botones de navegación del bot original (Compartir, Añadir, Menú)
-    text = re.sub(r'\n📤 Compartir Bot.*', '', text)
-    text = re.sub(r'\n➕ Añadir a Grupo.*', '', text)
-    text = re.sub(r'\n📋 Menú Principal.*', '', text)
+    text = re.sub(r'\\n📤 Compartir Bot.*', '', text)
+    text = re.sub(r'\\n➕ Añadir a Grupo.*', '', text)
+    text = re.sub(r'\\n📋 Menú Principal.*', '', text)
     
     return text
     # Quitar botones de navegación del bot original (Compartir, Añadir, Menú)
-    text = re.sub(r'\n📤 Compartir Bot.*', '', text)
-    text = re.sub(r'\n➕ Añadir a Grupo.*', '', text)
-    text = re.sub(r'\n📋 Menú Principal.*', '', text)
+    text = re.sub(r'\\n📤 Compartir Bot.*', '', text)
+    text = re.sub(r'\\n➕ Añadir a Grupo.*', '', text)
+    text = re.sub(r'\\n📋 Menú Principal.*', '', text)
     
     return text
 # ============ RESULTADOS ============
