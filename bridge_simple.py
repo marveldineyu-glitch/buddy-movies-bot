@@ -71,7 +71,9 @@ async def on_result(event):
     if not m.sender or not m.sender.bot: return
     if m.text and any(x in m.text.lower() for x in ["buscando", "espera", "recuerda usar", "ayúdanos", "compártelo", "gracias"]): return
     
+    print(f"DEBUG: media={bool(m.media)}, text={bool(m.text)}, btns={bool(m.buttons)}", flush=True)
     if m.media:
+        print(f"DEBUG: ENVIANDO MEDIA", flush=True)
         session = user_sessions.get(m.id, None) or (list(user_sessions.values())[-1] if user_sessions else None)
         if session:
             name = session.get('name', 'Usuario')
