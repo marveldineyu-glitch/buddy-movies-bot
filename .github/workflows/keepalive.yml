@@ -15,3 +15,5 @@ jobs:
         run: curl -s https://bridge-searchbot.onrender.com
       - name: Ping bridge-autofilter
         run: curl -s https://bridge-autofilter.onrender.com
+      - name: Ping bridge-chatgpt
+        run: curl -s https://bridge-chatgpt-gpt.onrender.com
