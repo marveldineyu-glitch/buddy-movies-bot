@@ -45,10 +45,14 @@ def check_rate_limit(user_id):
 
 def cache_buttons(msg):
     if not msg or not msg.buttons: return None
+    BLOCK_URLS = ['LfvtadGw', 'terabox']
     btns = []
     for row_idx, row in enumerate(msg.buttons):
         r = []
         for btn_idx, btn in enumerate(row):
+            # Saltar enlaces bloqueados
+            if btn.url and any(b in (btn.url or '') for b in BLOCK_URLS):
+                continue
             if btn.data:
                 data = btn.data.decode() if isinstance(btn.data, bytes) else btn.data
                 button_map[data] = (msg.id, row_idx, btn_idx)
