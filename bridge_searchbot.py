@@ -56,6 +56,18 @@ def check_rate_limit(user_id):
     return True
 
 def cache_buttons(msg):
+    # Filtrar botones no deseados
+    SKIP_TEXTS = ['compartir bot', 'añadir a grupo', 'menú principal', 'share bot', 'add to group', 'main menu']
+    if msg and msg.buttons:
+        filtered = []
+        for row in msg.buttons:
+            new_row = []
+            for btn in row:
+                if btn.text and not any(skip in btn.text.lower() for skip in SKIP_TEXTS):
+                    new_row.append(btn)
+            if new_row:
+                filtered.append(new_row)
+        msg.buttons = filtered if filtered else None
     """Guarda botones en caché para respuesta instantánea"""
     if not msg or not msg.buttons:
         return None
@@ -92,7 +104,17 @@ def replace_ads(text):
     
     # Si es mensaje de "no encontrado", eliminar botones
     if 'no se encontraron' in text.lower() or 'no se encontró' in text.lower():
-        return text
+        # Quitar botones de navegación del bot original (Compartir, Añadir, Menú)
+    text = re.sub(r'\n📤 Compartir Bot.*', '', text)
+    text = re.sub(r'\n➕ Añadir a Grupo.*', '', text)
+    text = re.sub(r'\n📋 Menú Principal.*', '', text)
+    
+    return text
+    # Quitar botones de navegación del bot original (Compartir, Añadir, Menú)
+    text = re.sub(r'\n📤 Compartir Bot.*', '', text)
+    text = re.sub(r'\n➕ Añadir a Grupo.*', '', text)
+    text = re.sub(r'\n📋 Menú Principal.*', '', text)
+    
     return text
 # ============ RESULTADOS ============
 @user.on(events.NewMessage(chats=SEARCH_GROUP))
