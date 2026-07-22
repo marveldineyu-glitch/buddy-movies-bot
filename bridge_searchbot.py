@@ -45,10 +45,13 @@ def check_rate_limit(user_id):
 
 def cache_buttons(msg):
     if not msg or not msg.buttons: return None
+    SKIP = ['compartir bot', 'añadir a grupo', 'menú principal', 'share bot', 'add to group', 'main menu']
     btns = []
     for row_idx, row in enumerate(msg.buttons):
         r = []
         for btn_idx, btn in enumerate(row):
+            if btn.text and any(s in btn.text.lower() for s in SKIP):
+                continue
             if btn.data:
                 data = btn.data.decode() if isinstance(btn.data, bytes) else btn.data
                 button_map[data] = (msg.id, row_idx, btn_idx)
