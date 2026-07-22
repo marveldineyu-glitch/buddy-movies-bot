@@ -42,6 +42,7 @@ async def on_chatgpt_response(event):
     clean_memory()
     m = event.message
     
+    print(f"DEBUG ChatGPT: text={bool(m.text)}, media={bool(m.media)}", flush=True)
     if not m.sender or not m.sender.bot: return
     
     # Ignorar mensajes de estado
