@@ -312,7 +312,7 @@ async def heartbeat():
 async def main():
     await user.start()
     await bot.start(bot_token=BOT_TOKEN)
-    print(f"✅ Bridge @TlgramMovieSearch_Bot → {GRUPO}")
+    print(f"✅ Bridge @TlgramMovieSearch_Bot → {GRUPO} v2")
     asyncio.create_task(heartbeat())
     await asyncio.gather(bot.run_until_disconnected(), user.run_until_disconnected())
 
