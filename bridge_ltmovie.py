@@ -89,7 +89,7 @@ async def on_result(event):
     m = event.message
     if m.sender_id != SEARCH_ID: return
     if not user_sessions: return
-    uid = m.id if m.id in user_sessions else list(user_sessions.keys())[-1]
+    uid = list(user_sessions.keys())[-1]
     s = user_sessions[uid]
     
     if m.media:
@@ -131,9 +131,8 @@ async def on_user_msg(event):
         return
     try: s = await event.get_sender(); name = s.first_name if s else "Usuario"
     except: name = "Usuario"
-    sent = await user.send_message(SEARCH_GROUP, q)
-    user_sessions[sent.id] = {'name': name, 'chat_id': event.chat_id, 'reply_to': event.message.id, 'timestamp': time.time()}
-    msg_map.clear()  # button_map persiste
+    user_sessions[event.sender_id] = {'name': name, 'chat_id': event.chat_id, 'reply_to': event.message.id, 'timestamp': time.time()}
+    button_map.clear(); msg_map.clear()
     await user.send_message(SEARCH_GROUP, q)
 
 @bot.on(events.CallbackQuery)

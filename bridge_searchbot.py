@@ -82,7 +82,7 @@ async def on_result(event):
     
     if m.media:
         if user_sessions:
-            uid = m.id if m.id in user_sessions else list(user_sessions.keys())[-1]
+            uid = list(user_sessions.keys())[-1]
             session = user_sessions[uid]
             name = session.get('name', 'Usuario')
             reply_to = session.get('reply_to')
@@ -144,9 +144,8 @@ async def on_user_msg(event):
         return
     try: sender = await bot.get_entity(event.sender_id); name = sender.first_name or "Usuario"
     except: name = "Usuario"
-    sent = await user.send_message(SEARCH_GROUP, q)
-    user_sessions[sent.id] = {'name': name, 'chat_id': event.chat_id, 'reply_to': event.message.id, 'timestamp': time.time()}
-    pass  # button_map persiste
+    user_sessions[event.sender_id] = {'name': name, 'chat_id': event.chat_id, 'reply_to': event.message.id, 'timestamp': time.time()}
+    button_map.clear()
     sent = await user.send_message(SEARCH_GROUP, f"/search {q}")
     user_sessions[event.sender_id]['search_msg_id'] = sent.id
 
