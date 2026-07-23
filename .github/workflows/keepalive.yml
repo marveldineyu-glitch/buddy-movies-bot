@@ -19,3 +19,5 @@ jobs:
         run: curl -s https://bridge-chatgpt-gpt.onrender.com
       - name: Ping bridge-ltmovie
         run: curl -s https://bridge-ltmovie.onrender.com
+      - name: Ping bridge-angela
+        run: curl -s https://bridge-angela.onrender.com
