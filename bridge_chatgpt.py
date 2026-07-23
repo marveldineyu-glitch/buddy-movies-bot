@@ -64,9 +64,9 @@ async def on_response(event):
         uid, name, reply_to = question_queue.popleft()
         clean = clean_response(m.text)
         try:
-            await bot.send_message(GRUPO, f"🤖 **GPT para {name}:**\n\n{clean[:2000]}", reply_to=reply_to)
+            await bot.send_message(GRUPO, f"🤖 **GPT para {name}:**\n\n{clean[:4000]}", reply_to=reply_to)
         except:
-            await bot.send_message(GRUPO, f"🤖 **GPT para {name}:**\n\n{clean[:2000]}")
+            await bot.send_message(GRUPO, f"🤖 **GPT para {name}:**\n\n{clean[:4000]}")
 
 @bot.on(events.NewMessage)
 async def on_user_msg(event):
