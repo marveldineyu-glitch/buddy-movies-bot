@@ -21,13 +21,13 @@ button_map = {}
 rate_limit = {}
 pending_click = None
 
-bot = TelegramClient('apple_bridge', API_ID, API_HASH, retry_delay=3, auto_reconnect=True, timeout=15)
-user = TelegramClient(StringSession(SESSION), API_ID, API_HASH, retry_delay=3, auto_reconnect=True, timeout=15)
+bot = TelegramClient('apple_bridge', API_ID, API_HASH, retry_delay=3, auto_reconnect=True, timeout=10)
+user = TelegramClient(StringSession(SESSION), API_ID, API_HASH, retry_delay=3, auto_reconnect=True, timeout=10)
 FOOTER = "\n\n❤️ @BuddyMovies_Bot"
 
 def clean_memory():
     now = time.time()
-    expired = [k for k, v in user_sessions.items() if now - v.get('timestamp', 0) > 300]
+    expired = [k for k, v in user_sessions.items() if now - v.get('timestamp', 0) > 600]
     for k in expired: user_sessions.pop(k, None)
     if len(button_map) > 2000:
         for k in list(button_map.keys())[:1000]: button_map.pop(k, None)
@@ -38,7 +38,7 @@ def check_rate_limit(user_id):
     if user_id in rate_limit:
         recent = [t for t in rate_limit[user_id] if now - t < 60]
         rate_limit[user_id] = recent
-        if len(recent) >= 15: return False
+        if len(recent) >= 20: return False
     else: rate_limit[user_id] = []
     rate_limit[user_id].append(now)
     return True
@@ -110,7 +110,7 @@ async def on_user_msg(event):
     try: s = await event.get_sender(); name = s.first_name if s else "Usuario"
     except: name = "Usuario"
     user_sessions[event.sender_id] = {'name': name, 'chat_id': event.chat_id, 'reply_to': event.message.id, 'timestamp': time.time()}
-    button_map.clear()
+    pass  # persistente
     await user.send_message(SEARCH_GROUP, q)
 
 @bot.on(events.CallbackQuery)

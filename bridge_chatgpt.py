@@ -18,8 +18,8 @@ gc.set_threshold(5000, 50, 50)
 question_queue = deque()
 rate_limit = {}
 
-bot = TelegramClient('chatgpt_final', API_ID, API_HASH, retry_delay=3, auto_reconnect=True, timeout=15)
-user = TelegramClient(StringSession(SESSION), API_ID, API_HASH, retry_delay=3, auto_reconnect=True, timeout=15)
+bot = TelegramClient('chatgpt_final', API_ID, API_HASH, retry_delay=3, auto_reconnect=True, timeout=10)
+user = TelegramClient(StringSession(SESSION), API_ID, API_HASH, retry_delay=3, auto_reconnect=True, timeout=10)
 
 def clean_memory():
     now = time.time()

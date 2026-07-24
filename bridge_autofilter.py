@@ -20,12 +20,12 @@ search_results = {}
 button_map = {}
 rate_limit = {}
 
-bot = TelegramClient('autofilter_prod', API_ID, API_HASH, retry_delay=3, auto_reconnect=True, timeout=15)
-user = TelegramClient(StringSession(SESSION), API_ID, API_HASH, retry_delay=3, auto_reconnect=True, timeout=15)
+bot = TelegramClient('autofilter_prod', API_ID, API_HASH, retry_delay=3, auto_reconnect=True, timeout=10)
+user = TelegramClient(StringSession(SESSION), API_ID, API_HASH, retry_delay=3, auto_reconnect=True, timeout=10)
 
 def clean_memory():
     now = time.time()
-    expired = [k for k, v in user_sessions.items() if now - v.get('timestamp', 0) > 300]
+    expired = [k for k, v in user_sessions.items() if now - v.get('timestamp', 0) > 600]
     for k in expired: user_sessions.pop(k, None)
     if len(search_results) > 100:
         for k in list(search_results.keys())[:50]: search_results.pop(k, None)
@@ -38,7 +38,7 @@ def check_rate_limit(user_id):
     if user_id in rate_limit:
         recent = [t for t in rate_limit[user_id] if now - t < 60]
         rate_limit[user_id] = recent
-        if len(recent) >= 15: return False
+        if len(recent) >= 20: return False
     else: rate_limit[user_id] = []
     rate_limit[user_id].append(now)
     return True
@@ -63,6 +63,7 @@ def cache_buttons(msg):
 
 def replace_ads(text):
     if not text: return text
+    text = re.sub(r'@(?!BuddyMovies)\w+', '', text)
     text = text.replace("@TlgramMovieGroup_Bot", "@BuddyMovies_Bot")
     text = text.replace("@FILM_PARADIZE", "@BuddyMovies_official")
     text = text.replace("@RZXBOTZ", "@BuddyMovies_Bot")
@@ -77,7 +78,7 @@ async def on_result(event):
     
     if m.text and ("no results found" in m.text.lower() or "not available" in m.text.lower()):
         for uid, session in list(user_sessions.items()):
-            try: await bot.send_message(session.get('chat_id', GRUPO), "❌ No se encontraron resultados.", reply_to=session.get('reply_to'))
+            try: await bot.send_message(session.get('chat_id', GRUPO), "", reply_to=session.get('reply_to'))
             except: pass
             break
         return
@@ -150,7 +151,7 @@ async def on_user_msg(event):
     try: sender = await bot.get_entity(event.sender_id); name = sender.first_name or "Usuario"
     except: name = "Usuario"
     user_sessions[event.sender_id] = {'name': name, 'chat_id': event.chat_id, 'reply_to': event.message.id, 'timestamp': time.time()}
-    button_map.clear()
+    pass  # persistente
     await user.send_message(SEARCH_GROUP, q)
 
 @bot.on(events.CallbackQuery)
