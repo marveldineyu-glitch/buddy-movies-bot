@@ -123,6 +123,21 @@ async def on_result(event):
         if any(x in low for x in ["buscando", "espera", "recuerda usar", "ayúdanos", "compártelo", "gracias"]): return
     
     if m.media:
+        # Si es un archivo, guardar en canal
+        if not m.photo and m.document:
+            caption = replace_ads(m.text or "")
+            if caption:
+                sent = await user.send_file(CANAL, m.media, caption=caption)
+                link = f"https://t.me/{CANAL[1:]}/{sent.id}"
+                session = user_sessions.get(m.id)
+                if not session and user_sessions:
+                    session = list(user_sessions.values())[-1]
+                if session:
+                    await bot.send_message(GRUPO, f"🎬 **{session['name']}**
+
+🔗 {link}", buttons=[[Button.url("🎥 VER CONTENIDO", link)]], reply_to=session.get('reply_to'))
+            return
+        
         # Buscar por m.id primero, luego último
         session = user_sessions.get(m.id)
         if not session and user_sessions:
