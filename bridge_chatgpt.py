@@ -32,7 +32,7 @@ def check_rate_limit(user_id):
     if user_id in rate_limit:
         recent = [t for t in rate_limit[user_id] if now - t < 60]
         rate_limit[user_id] = recent
-        if len(recent) >= 10: return False
+        if len(recent) >= 20: return False
     else: rate_limit[user_id] = []
     rate_limit[user_id].append(now)
     return True

@@ -25,63 +25,7 @@ user = TelegramClient(StringSession(SESSION), API_ID, API_HASH, retry_delay=3, a
 
 def clean_memory():
     now = time.time()
-    expired = [k for k, v in user_sessions.items() if now - v.get('timestamp', 0) > 600]
-    for k in expired: user_sessions.pop(k, None)
-    if len(search_results) > 100:
-        for k in list(search_results.keys())[:50]: search_results.pop(k, None)
-    if len(button_map) > 1000:
-        for k in list(button_map.keys())[:500]: button_map.pop(k, None)
-    gc.collect()
-
-def check_rate_limit(user_id):
-    now = time.time()
-    if user_id in rate_limit:
-        recent = [t for t in rate_limit[user_id] if now - t < 60]
-        rate_limit[user_id] = recent
-        if len(recent) >= 20: return False
-    else: rate_limit[user_id] = []
-    rate_limit[user_id].append(now)
-    return True
-
-def cache_buttons(msg):
-    if not msg or not msg.buttons: return None
-    BLOCK_URLS = ['LfvtadGw', 'terabox']
-    btns = []
-    for row_idx, row in enumerate(msg.buttons):
-        r = []
-        for btn_idx, btn in enumerate(row):
-            # Saltar enlaces bloqueados
-            if btn.url and any(b in (btn.url or '') for b in BLOCK_URLS):
-                continue
-            if btn.data:
-                data = btn.data.decode() if isinstance(btn.data, bytes) else btn.data
-                button_map[data] = (msg.id, row_idx, btn_idx)
-                r.append(Button.inline(btn.text[:50], data[:64]))
-            elif btn.url: r.append(Button.url(btn.text[:50], btn.url))
-        if r: btns.append(r)
-    return btns if btns else None
-
-def replace_ads(text):
-    if not text: return text
-    text = re.sub(r'@(?!BuddyMovies)\w+', '', text)
-    text = text.replace("@TlgramMovieGroup_Bot", "@BuddyMovies_Bot")
-    text = text.replace("@FILM_PARADIZE", "@BuddyMovies_official")
-    text = text.replace("@RZXBOTZ", "@BuddyMovies_Bot")
-    return text
-
-@user.on(events.NewMessage(chats=SEARCH_GROUP))
-async def on_result(event):
-    clean_memory()
-    m = event.message
-    if not m.sender or not m.sender.bot: return
-    if m.text and any(x in m.text.lower() for x in ["save the file", "will be deleted", "select language"]): return
-    
-    if m.text and ("no results found" in m.text.lower() or "not available" in m.text.lower()):
-        for uid, session in list(user_sessions.items()):
-            try: await bot.send_message(session.get('chat_id', GRUPO), "", reply_to=session.get('reply_to'))
-            except: pass
-            break
-        return
+    expired = [k for k, v in user_sessions.items() 
     
     if m.media:
         if user_sessions:

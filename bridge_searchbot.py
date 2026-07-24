@@ -64,6 +64,7 @@ def replace_ads(text):
     if not text: return text
     text = text.replace("@TlgramMovieSearch_Bot", "@BuddyNotify_Bot")
     text = re.sub(r'@(?!BuddyMovies)\w+', '', text)
+    text = re.sub(r'@(?!BuddyMovies|BuddyNotify)\w+', '', text)
     text = text.replace("@TlgramMovieGroup_Bot", "@BuddyMovies_Bot")
     text = text.replace("@MotorBusquedaBot", "@BuddyNotify_Bot")
     text = text.replace("Estrenos 2026", "@BuddyMovies_official")

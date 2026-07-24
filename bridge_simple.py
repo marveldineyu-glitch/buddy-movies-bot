@@ -60,6 +60,7 @@ def cache_buttons(msg):
 def replace_ads(text):
     if not text: return text
     text = re.sub(r'@(?!BuddyMovies)\w+', '', text)
+    text = re.sub(r'@(?!BuddyMovies|BuddyNotify)\w+', '', text)
     text = text.replace("@TlgramMovieGroup_Bot", "@BuddyMovies_Bot")
     text = text.replace("@FILM_PARADIZE", "@BuddyMovies_official")
     text = text.replace("@RZXBOTZ", "@BuddyMovies_Bot")

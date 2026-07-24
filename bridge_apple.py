@@ -45,7 +45,7 @@ def check_rate_limit(user_id):
 
 def clean_text(text):
     if not text: return "Sin descripción"
-    text = text.replace("Join @F5_FILMS", "").replace("@Apple_Movies101", "")
+    text = text.replace(" "").replace("@Apple_Movies101", "")
     text = re.sub(r'https?://\S+', '', text)
     text = text.strip()
     return text if text else "Sin descripción"
