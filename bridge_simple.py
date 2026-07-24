@@ -90,10 +90,13 @@ async def on_result(event):
         if any(x in low for x in ["buscando", "espera", "recuerda usar", "ayúdanos", "compártelo", "gracias"]): return
     
     if m.media:
+        # Buscar por m.id primero, luego último
         session = user_sessions.get(m.id)
         if not session and user_sessions:
+            # Tomar el último que hizo búsqueda
             session = list(user_sessions.values())[-1]
         if session:
+            print(f"DEBUG: Enviando media a {session['name']}", flush=True)
             raw = replace_ads(m.text or "")
             if not raw: return
             sent = await user.send_file(CANAL, m.media, caption=raw)
@@ -105,9 +108,11 @@ async def on_result(event):
         text = replace_ads(m.text)
         if not text: return
         buttons = cache_buttons(m)
-        if user_sessions:
-            uid = list(user_sessions.keys())[-1]
-            session = user_sessions[uid]
+        session = user_sessions.get(m.id)
+        if not session and user_sessions:
+            session = list(user_sessions.values())[-1]
+        if session:
+            print(f"DEBUG: Enviando texto a {session['name']}", flush=True)
             await bot.send_message(GRUPO, text[:4000], buttons=buttons, reply_to=session.get('reply_to'))
 
 @bot.on(events.NewMessage)
