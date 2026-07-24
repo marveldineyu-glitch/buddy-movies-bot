@@ -71,8 +71,6 @@ def cache_buttons(msg):
 
 def replace_ads(text):
     if not text: return ""
-    for block in MENU_BLOCK:
-        if block.lower() in text.lower(): return ""
     text = text.replace("@TlgramMovieGroup_Bot", "@BuddyMovies_Bot")
     text = text.replace("@FILM_PARADIZE", "@BuddyMovies_official")
     text = re.sub(r'@(?!BuddyMovies|BuddyNotify)\w+', '', text)
@@ -90,7 +88,7 @@ async def on_result(event):
     if not m.sender: return  # Aceptar aunque no sea bot
     
     if m.text:
-        if any(b in m.text for b in MENU_BLOCK): return
+        pass  # No bloquear
         low = m.text.lower()
         if any(x in low for x in ["buscando", "espera", "recuerda usar", "ayúdanos", "compártelo", "gracias"]): return
     
