@@ -27,6 +27,7 @@ MENU_BLOCK = [
 
 user_sessions = OrderedDict()
 button_map = {}
+msg_map = {}
 rate_limit = {}
 
 bot = TelegramClient('buddy_bot2', API_ID, API_HASH, retry_delay=3, auto_reconnect=True, timeout=10)
@@ -95,12 +96,21 @@ async def on_edit(event):
     if not text: return
     buttons = cache_buttons(m)
     
+    # Buscar si ya enviamos este mensaje al grupo
+    if m.id in msg_map:
+        try:
+            await bot.edit_message(GRUPO, msg_map[m.id], text=text[:4000], buttons=buttons)
+            return
+        except: pass
+    
+    # Si no, enviar nuevo y guardar
     session = user_sessions.get(m.id)
     if not session and user_sessions:
         session = list(user_sessions.values())[-1]
     if session:
-        await bot.send_message(GRUPO, text[:4000], buttons=buttons, reply_to=session.get('reply_to'))
-        print(f"EDIT enviado a {session['name']}", flush=True)
+        sent = await bot.send_message(GRUPO, text[:4000], buttons=buttons, reply_to=session.get('reply_to'))
+        if sent:
+            msg_map[m.id] = sent.id
 async def on_result(event):
     clean_memory()
     m = event.message
