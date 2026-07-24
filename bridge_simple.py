@@ -82,7 +82,7 @@ def replace_ads(text):
 async def on_result(event):
     clean_memory()
     m = event.message
-    if not m.sender or not m.sender.bot: return
+    if not m.sender: return  # Aceptar aunque no sea bot
     
     if m.text:
         if any(b in m.text for b in MENU_BLOCK): return
