@@ -82,6 +82,25 @@ async def _debug_all(event):
     print(f"DEBUG: ID={m.id} sender={m.sender_id} bot={m.sender.bot if m.sender else 'N/A'} media={bool(m.media)} text={bool(m.text)} btns={bool(m.buttons)}", flush=True)
 
 @user.on(events.NewMessage(chats=SEARCH_GROUP))
+
+
+@user.on(events.MessageEdited(chats=SEARCH_GROUP))
+async def on_edit(event):
+    clean_memory()
+    m = event.message
+    if m.sender_id != 7537528826: return
+    if not m.text or not m.buttons: return
+    
+    text = replace_ads(m.text)
+    if not text: return
+    buttons = cache_buttons(m)
+    
+    session = user_sessions.get(m.id)
+    if not session and user_sessions:
+        session = list(user_sessions.values())[-1]
+    if session:
+        await bot.send_message(GRUPO, text[:4000], buttons=buttons, reply_to=session.get('reply_to'))
+        print(f"EDIT enviado a {session['name']}", flush=True)
 async def on_result(event):
     clean_memory()
     m = event.message
