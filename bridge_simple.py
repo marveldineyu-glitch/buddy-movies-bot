@@ -57,7 +57,15 @@ def cache_buttons(msg):
         if r: btns.append(r)
     return btns if btns else None
 
+MENU_BLOCK = ['Hola, soy Group Search', 'Si estás buscando', 'Usa el comando:', '/search', 'Hecho con cariño', 'Group Search']
+
 def replace_ads(text):
+    if not text: return ""
+    # Bloquear mensajes del menú del bot
+    for block in MENU_BLOCK:
+        if block in text:
+            return ""  # No enviar nada
+    return text
     if not text: return text
     text = re.sub(r'@(?!BuddyMovies)\w+', '', text)
     text = re.sub(r'@(?!BuddyMovies|BuddyNotify)\w+', '', text)
@@ -73,6 +81,9 @@ async def on_result(event):
     if not m.sender or not m.sender.bot: return
     if m.text and any(x in m.text.lower() for x in ["buscando", "espera", "recuerda usar", "ayúdanos", "compártelo", "gracias"]): return
     
+    # Bloquear mensajes del menú
+    if m.text and any(b in m.text for b in MENU_BLOCK):
+        return
     if m.media:
         if user_sessions:
             uid = list(user_sessions.keys())[-1]
