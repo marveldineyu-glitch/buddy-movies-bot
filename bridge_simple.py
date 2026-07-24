@@ -79,6 +79,11 @@ def replace_ads(text):
     return text
 
 @user.on(events.NewMessage(chats=SEARCH_GROUP))
+async def _debug_all(event):
+    m = event.message
+    print(f"DEBUG: ID={m.id} sender={m.sender_id} bot={m.sender.bot if m.sender else 'N/A'} media={bool(m.media)} text={bool(m.text)} btns={bool(m.buttons)}", flush=True)
+
+@user.on(events.NewMessage(chats=SEARCH_GROUP))
 async def on_result(event):
     clean_memory()
     m = event.message
