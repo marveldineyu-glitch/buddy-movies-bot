@@ -62,7 +62,7 @@ def cache_buttons(msg):
             if btn.text and any(b in (btn.text or '') for b in MENU_BLOCK): continue
             if btn.data:
                 data = btn.data.decode() if isinstance(btn.data, bytes) else btn.data
-                button_map[data] = (msg.id, row_idx, btn_idx)
+                button_map[data] = (msg.id, row_idx, btn_idx)  # Guardar para callbacks
                 r.append(Button.inline(btn.text[:50], data[:64]))
             elif btn.url:
                 if any(b in (btn.text or '') for b in MENU_BLOCK): continue
@@ -95,6 +95,7 @@ async def on_edit(event):
     text = replace_ads(m.text)
     if not text: return
     buttons = cache_buttons(m)
+    # Actualizar button_map para los callbacks
     
     # Buscar si ya enviamos este mensaje al grupo
     if m.id in msg_map:
