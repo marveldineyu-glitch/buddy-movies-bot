@@ -99,7 +99,7 @@ async def on_edit(event):
     if not m.text or not m.buttons: return
     if is_menu(m.text): return
     
-    text = clean_text(m.text)
+    text = clean_text(m.text) or m.text[:500]
     
     if m.id in msg_map:
         our_id = msg_map[m.id]
