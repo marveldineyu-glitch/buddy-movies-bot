@@ -1,4 +1,4 @@
-name: Keep Render Alive 🟢
+name: Keep Alive 🟢
 
 on:
   schedule:
@@ -11,3 +11,5 @@ jobs:
     steps:
       - name: Ping buddy-simple
         run: curl -s https://buddy-simple.onrender.com
+      - name: Ping buddy-notify
+        run: curl -s https://buddy-notify.onrender.com
