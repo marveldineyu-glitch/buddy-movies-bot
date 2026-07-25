@@ -10,7 +10,7 @@ BOT_TOKEN = "8724266934:AAFZQQwhJvfkebr1csgnIKwMZKkXa44eGyA"
 SESSION_READER = "1AZWarzoBu6rsHjBrxUojsiSlObtBiITjKqGQNfAF5cY684G1Nl7QRf_LEpAyvjqZZQ_wUcx5WaKJCje73QZ0tM66-6eepOyd6ESW8yW8UTcuc6ywaubH6NfYsUfnrcH3dCh_utVTwBZHHF6SFoVpCUt2YaCDBW3DgYAq_Hdz-fKB0il7JCHaFFkzOD1gxdxf-WcBG2RCdxS3ApiyN23KKPl-B-nkuHhm1dYi2q2M8W6ZMbT6jHjmpIJxrATOYJOQQT52ZmdblUpT1jQlknFZTU0S0HMRMv3R9OIDWFiSfmuoMZvF0mi1kD-j1TvPYpqIxInNCcTS_ayuE_GouG2hmitXNdj4PM4="
 SEARCH_GROUP = "@pooppuuui"
 CANAL = "@BuddyMovies_canal"
-GRUPO = "@BuddyMovies_official"
+GRUPO = -1002311102965  # ID numérico de @BuddyMovies_official
 BOT_ID = 7537528826
 FOOTER = "\n\n➠ @BuddyMovies_canal 🎬\n➠ @BuddyMovies_official 💬"
 
