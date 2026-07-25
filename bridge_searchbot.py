@@ -109,8 +109,12 @@ async def on_edit(event):
         for row in m.buttons:
             for btn in row:
                 if btn.data:
-                if btn.text and any(s in (btn.text or '').lower() for s in ['inicio', 'menú principal', 'menu principal']): continue
-                if btn.text and any(s in (btn.text or '').lower() for s in ['inicio', 'menú principal', 'menu principal']): continue
+                if btn.text and any(s in (btn.text or '').lower() for s in ['inicio', 'menú principal', 'menu principal']):
+                        continue
+
+                if btn.text and any(s in (btn.text or '').lower() for s in ['inicio', 'menú principal', 'menu principal']):
+                        continue
+
                     await btn.click()
                     return
     
