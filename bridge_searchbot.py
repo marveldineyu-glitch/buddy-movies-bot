@@ -48,6 +48,7 @@ def cache_buttons(msg, our_msg_id=None):
         for btn in row:
             if btn.data:
                 if btn.text and any(s in (btn.text or '').lower() for s in ['inicio', 'menú principal', 'menu principal']): continue
+                if btn.text and any(s in (btn.text or '').lower() for s in ['inicio', 'menú principal', 'menu principal']): continue
                 data = btn.data.decode() if isinstance(btn.data, bytes) else btn.data
                 if our_msg_id: button_map[(our_msg_id, data)] = (msg.id, msg.buttons.index(row), row.index(btn))
                 button_map[data] = (msg.id, msg.buttons.index(row), row.index(btn))
@@ -71,6 +72,7 @@ async def on_result(event):
         for row in m.buttons:
             for btn in row:
                 if btn.data:
+                if btn.text and any(s in (btn.text or '').lower() for s in ['inicio', 'menú principal', 'menu principal']): continue
                 if btn.text and any(s in (btn.text or '').lower() for s in ['inicio', 'menú principal', 'menu principal']): continue
                     await btn.click()
                     return
@@ -107,6 +109,7 @@ async def on_edit(event):
         for row in m.buttons:
             for btn in row:
                 if btn.data:
+                if btn.text and any(s in (btn.text or '').lower() for s in ['inicio', 'menú principal', 'menu principal']): continue
                 if btn.text and any(s in (btn.text or '').lower() for s in ['inicio', 'menú principal', 'menu principal']): continue
                     await btn.click()
                     return
