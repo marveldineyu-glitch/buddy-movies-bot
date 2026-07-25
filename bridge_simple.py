@@ -50,11 +50,10 @@ def clean_text(text):
     text = text.replace("@TlgramMovieGroup_Bot", "")
     text = text.replace("❤️ @TlgramMovieGroup_Bot", "")
     text = text.replace("❤️ @BuddyMovies_Bot", "")
-    text = re.sub(r'https?://\S+', '', text)
-    text = re.sub(r'@(?!BuddyMovies)\w+', '', text)
+    text = re.sub(r'https?://\\S+', '', text)
+    text = re.sub(r'@(?!BuddyMovies)\\w+', '', text)
     text = text.strip()
     return text if text else "Sin descripción"
-
 def is_menu(text):
     return any(b in text for b in MENU_BLOCK)
 
