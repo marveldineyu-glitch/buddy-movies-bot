@@ -9,17 +9,5 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping bridge-simple
-        run: curl -s https://bridge-simple-test.onrender.com
-      - name: Ping bridge-searchbot
-        run: curl -s https://bridge-searchbot.onrender.com
-      - name: Ping bridge-autofilter
-        run: curl -s https://bridge-autofilter.onrender.com
-      - name: Ping bridge-chatgpt
-        run: curl -s https://bridge-chatgpt-gpt.onrender.com
-      - name: Ping bridge-ltmovie
-        run: curl -s https://bridge-ltmovie.onrender.com
-      - name: Ping bridge-angela
-        run: curl -s https://bridge-angela.onrender.com
-      - name: Ping bridge-apple
-        run: curl -s https://bridge-apple.onrender.com
+      - name: Ping buddy-simple
+        run: curl -s https://buddy-simple.onrender.com
