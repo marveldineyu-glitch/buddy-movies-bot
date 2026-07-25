@@ -175,7 +175,7 @@ async def heartbeat():
 async def main():
     await user.start()
     await bot.start(bot_token=BOT_TOKEN)
-    print(f"✅ @BuddyNotify_Bot → {GRUPO}")
+    print(f"✅ @BuddyNotify_Bot v2 → {GRUPO}")
     asyncio.create_task(heartbeat())
     await asyncio.gather(bot.run_until_disconnected(), user.run_until_disconnected())
 
