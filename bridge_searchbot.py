@@ -42,14 +42,14 @@ def clean_text(text):
 
 def cache_buttons(msg, our_msg_id=None):
     if not msg or not msg.buttons: return None
+    SKIP = ['inicio', 'menú principal', 'menu principal', 'compartir bot', 'añadir a grupo']
     btns = []
     for row in msg.buttons:
         r = []
         for btn in row:
+            if btn.text and any(s in (btn.text or '').lower() for s in SKIP):
+                continue
             if btn.data:
-                if btn.text and any(s in (btn.text or '').lower() for s in ['inicio', 'menú principal', 'menu principal']):
-                    continue
-                if btn.text and any(s in (btn.text or '').lower() for s in ['inicio', 'menú principal', 'menu principal']): continue
                 data = btn.data.decode() if isinstance(btn.data, bytes) else btn.data
                 if our_msg_id: button_map[(our_msg_id, data)] = (msg.id, msg.buttons.index(row), row.index(btn))
                 button_map[data] = (msg.id, msg.buttons.index(row), row.index(btn))
